@@ -75,10 +75,10 @@ function SetPrice({ onSwitchPage }) {
       const base24 = parseFloat(value);
       if (!isNaN(base24) && base24 > 0) {
         const ratios = {
-          '22.00': 0.9167,
-          '18.00': 0.76,
-          '14.00': 0.60,
-          '10.00': 0.40
+          '22.00': parseFloat(prices['22.00_percent']) || 0.9167,
+          '18.00': parseFloat(prices['18.00_percent']) || 0.76,
+          '14.00': parseFloat(prices['14.00_percent']) || 0.60,
+          '10.00': parseFloat(prices['10.00_percent']) || 0.40
         };
         Object.entries(ratios).forEach(([k, ratio]) => {
           const calculatedVal = Math.round((base24 * ratio) / 10) * 10;
@@ -129,6 +129,7 @@ function SetPrice({ onSwitchPage }) {
       const responses = await Promise.all(requests);
 
       if (responses.every(r => r.ok)) {
+        localStorage.setItem("pricesUpdatedToday", new Date().toDateString());
         alert('Prices and frequency updated successfully!');
         setIsEditable(false);
         fetchData();

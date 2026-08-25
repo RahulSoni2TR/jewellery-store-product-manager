@@ -26,26 +26,49 @@ public class LicenseService {
         "lnEz05hYLo2/hwIDAQAB";
 
     private static final String TRIAL_SECRET_SALT = "Dia1ProductManagerTrialSecretKeySalt_2026";
-    private static final long TRIAL_DURATION_MS = 10L * 24 * 60 * 60 * 1000L; // 10 days
+    private static final long TRIAL_DURATION_MS = 7L * 24 * 60 * 60 * 1000L; // 7 days
 
-    private final File primaryTrialFile;
-    private final File backupTrialFile;
     private final File licenseFile;
+    private final File persistentBackupTrialFile;
+    private final File oldPrimaryTrialFile;
+    private final File oldBackupTrialFile;
+    private final String registryNodePath;
 
     public LicenseService() {
         this(
             new File(System.getProperty("user.home"), ".productmanager"),
-            new File(System.getProperty("java.io.tmpdir"))
+            new File(System.getProperty("java.io.tmpdir")),
+            getPersistentBackupDir(),
+            "com/example/webapp/trial"
         );
     }
 
+    private static File getPersistentBackupDir() {
+        String appData = System.getenv("APPDATA");
+        File dir = (appData != null) ? new File(appData, ".productmanager_backup") : new File(System.getProperty("user.home"), ".productmanager_backup");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+    LicenseService(File baseDir, File oldTempDir, File persistentBackupDir) {
+        this(baseDir, oldTempDir, persistentBackupDir, "com/example/webapp/trial");
+    }
+
     LicenseService(File baseDir, File backupDir) {
+        this(baseDir, backupDir, backupDir, "com/example/webapp/trial_test");
+    }
+
+    LicenseService(File baseDir, File oldTempDir, File persistentBackupDir, String registryNodePath) {
         if (!baseDir.exists()) {
             baseDir.mkdirs();
         }
-        this.primaryTrialFile = new File(baseDir, "trial.dat");
         this.licenseFile = new File(baseDir, "license.lic");
-        this.backupTrialFile = new File(backupDir, "trial_pm.dat");
+        this.oldPrimaryTrialFile = new File(baseDir, "trial.dat");
+        this.oldBackupTrialFile = new File(oldTempDir, "trial_pm.dat");
+        this.persistentBackupTrialFile = new File(persistentBackupDir, "trial_pm.dat");
+        this.registryNodePath = registryNodePath;
     }
 
     /**
@@ -88,26 +111,28 @@ public class LicenseService {
 
         // 2. Check trial status
         TrialData trial = getAndSyncTrialData();
-        if (trial.tampered) {
-            return LicenseStatus.TAMPERED;
-        }
 
         long now = System.currentTimeMillis();
         // Clock rollback check
         if (now < trial.lastSeen) {
-            trial.tampered = true;
+            // Clock went backward: establish new baseline but do not add elapsed time.
+            trial.lastSeen = now;
             saveTrialData(trial);
-            return LicenseStatus.TAMPERED;
+        } else {
+            // Clock is normal or moving forward.
+            if (now > trial.highestTimeRecorded) {
+                long progress = now - trial.highestTimeRecorded;
+                trial.elapsedTimeMs += progress;
+                trial.highestTimeRecorded = now;
+            }
+            trial.lastSeen = now;
+            saveTrialData(trial);
         }
 
         // Expiry check
-        if (now - trial.firstLaunch > TRIAL_DURATION_MS) {
+        if (trial.elapsedTimeMs > TRIAL_DURATION_MS) {
             return LicenseStatus.EXPIRED;
         }
-
-        // Update last seen
-        trial.lastSeen = Math.max(trial.lastSeen, now);
-        saveTrialData(trial);
 
         return LicenseStatus.TRIAL;
     }
@@ -117,8 +142,7 @@ public class LicenseService {
      */
     public int getDaysRemaining() {
         TrialData trial = getAndSyncTrialData();
-        if (trial.tampered) return 0;
-        long remainingMs = TRIAL_DURATION_MS - (System.currentTimeMillis() - trial.firstLaunch);
+        long remainingMs = TRIAL_DURATION_MS - trial.elapsedTimeMs;
         if (remainingMs <= 0) return 0;
         return (int) Math.ceil((double) remainingMs / (24 * 60 * 60 * 1000L));
     }
@@ -135,6 +159,7 @@ public class LicenseService {
                 FileWriter writer = new FileWriter(licenseFile);
                 writer.write(licenseKey.trim());
                 writer.close();
+                writeLicenseToRegistry(licenseKey);
                 return true;
             } catch (IOException e) {
                 return false;
@@ -171,47 +196,119 @@ public class LicenseService {
     private static class TrialData {
         long firstLaunch;
         long lastSeen;
+        long elapsedTimeMs;
+        long highestTimeRecorded;
         boolean tampered;
 
-        TrialData(long firstLaunch, long lastSeen, boolean tampered) {
+        TrialData(long firstLaunch, long lastSeen, long elapsedTimeMs, long highestTimeRecorded, boolean tampered) {
             this.firstLaunch = firstLaunch;
             this.lastSeen = lastSeen;
+            this.elapsedTimeMs = elapsedTimeMs;
+            this.highestTimeRecorded = highestTimeRecorded;
             this.tampered = tampered;
         }
     }
 
-    private TrialData getAndSyncTrialData() {
-        TrialData primary = readTrialFile(primaryTrialFile);
-        TrialData backup = readTrialFile(backupTrialFile);
+    private TrialData readTrialFromRegistry() {
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node(this.registryNodePath);
+            long firstLaunch = prefs.getLong("firstLaunch", -1L);
+            if (firstLaunch == -1L) {
+                return null;
+            }
+            long lastSeen = prefs.getLong("lastSeen", firstLaunch);
+            long elapsedTimeMs = prefs.getLong("elapsedTimeMs", 0L);
+            long highestTimeRecorded = prefs.getLong("highestTimeRecorded", lastSeen);
+            boolean tampered = prefs.getBoolean("tampered", false);
+            String checksum = prefs.get("checksum", "");
 
-        if (primary == null && backup == null) {
-            // First launch
+            String expectedChecksum = computeNewChecksum(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, tampered);
+            if (!expectedChecksum.equals(checksum)) {
+                return new TrialData(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, true);
+            }
+            return new TrialData(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, tampered);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void writeTrialToRegistry(TrialData data) {
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node(this.registryNodePath);
+            prefs.putLong("firstLaunch", data.firstLaunch);
+            prefs.putLong("lastSeen", data.lastSeen);
+            prefs.putLong("elapsedTimeMs", data.elapsedTimeMs);
+            prefs.putLong("highestTimeRecorded", data.highestTimeRecorded);
+            prefs.putBoolean("tampered", data.tampered);
+            prefs.put("checksum", computeNewChecksum(data.firstLaunch, data.lastSeen, data.elapsedTimeMs, data.highestTimeRecorded, data.tampered));
+            prefs.flush();
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    private TrialData getAndSyncTrialData() {
+        TrialData registry = readTrialFromRegistry();
+        TrialData persistentBackup = readTrialFile(persistentBackupTrialFile);
+
+        if (registry == null && persistentBackup == null) {
+            // Try to read old primary file
+            TrialData oldPrimary = readTrialFile(oldPrimaryTrialFile);
+            // Try to read old temp backup file
+            TrialData oldBackup = readTrialFile(oldBackupTrialFile);
+
+            TrialData migrated = null;
+            if (oldPrimary != null && oldBackup != null) {
+                long minFirstLaunch = Math.min(oldPrimary.firstLaunch, oldBackup.firstLaunch);
+                long maxLastSeen = Math.max(oldPrimary.lastSeen, oldBackup.lastSeen);
+                boolean tampered = oldPrimary.tampered || oldBackup.tampered;
+                migrated = new TrialData(minFirstLaunch, maxLastSeen, maxLastSeen - minFirstLaunch, maxLastSeen, tampered);
+            } else if (oldPrimary != null) {
+                migrated = oldPrimary;
+            } else if (oldBackup != null) {
+                migrated = oldBackup;
+            }
+
+            if (migrated != null) {
+                migrated.tampered = false;
+                saveTrialData(migrated);
+
+                try {
+                    if (oldPrimaryTrialFile.exists()) {
+                        oldPrimaryTrialFile.delete();
+                    }
+                    if (oldBackupTrialFile.exists()) {
+                        oldBackupTrialFile.delete();
+                    }
+                } catch (Exception e) {
+                    // ignore cleanup errors
+                }
+
+                return migrated;
+            }
+
             long now = System.currentTimeMillis();
-            TrialData newTrial = new TrialData(now, now, false);
+            TrialData newTrial = new TrialData(now, now, 0L, now, false);
             saveTrialData(newTrial);
             return newTrial;
         }
 
-        if (primary != null && backup != null) {
-            if (primary.tampered || backup.tampered) {
-                // If either is marked tampered, overall is tampered
-                primary.tampered = true;
-                backup.tampered = true;
-                saveTrialData(primary);
-                return primary;
-            }
-            // Sync if needed, taking the latest lastSeen
-            long maxLastSeen = Math.max(primary.lastSeen, backup.lastSeen);
-            long minFirstLaunch = Math.min(primary.firstLaunch, backup.firstLaunch);
-            TrialData synced = new TrialData(minFirstLaunch, maxLastSeen, false);
-            if (primary.lastSeen != maxLastSeen || primary.firstLaunch != minFirstLaunch) {
+        if (registry != null && persistentBackup != null) {
+            long maxElapsed = Math.max(registry.elapsedTimeMs, persistentBackup.elapsedTimeMs);
+            long maxHighest = Math.max(registry.highestTimeRecorded, persistentBackup.highestTimeRecorded);
+            long minFirstLaunch = Math.min(registry.firstLaunch, persistentBackup.firstLaunch);
+            long maxLastSeen = Math.max(registry.lastSeen, persistentBackup.lastSeen);
+            boolean tampered = registry.tampered || persistentBackup.tampered;
+
+            TrialData synced = new TrialData(minFirstLaunch, maxLastSeen, maxElapsed, maxHighest, false);
+            if (registry.elapsedTimeMs != maxElapsed || registry.highestTimeRecorded != maxHighest || registry.lastSeen != maxLastSeen) {
                 saveTrialData(synced);
             }
             return synced;
         }
 
-        // One is missing/corrupt, restore it from the other
-        TrialData valid = (primary != null) ? primary : backup;
+        TrialData valid = (registry != null) ? registry : persistentBackup;
+        valid.tampered = false;
         saveTrialData(valid);
         return valid;
     }
@@ -221,51 +318,77 @@ public class LicenseService {
             return null;
         }
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String firstLaunchStr = br.readLine();
-            String lastSeenStr = br.readLine();
-            String tamperedStr = br.readLine();
-            String checksum = br.readLine();
+            java.util.List<String> lines = new java.util.ArrayList<>();
+            String line;
+            while ((line = br.readLine()) != null) {
+                lines.add(line.trim());
+            }
 
-            if (firstLaunchStr == null || lastSeenStr == null || tamperedStr == null || checksum == null) {
+            if (lines.size() < 4) {
                 return null;
             }
 
-            long firstLaunch = Long.parseLong(firstLaunchStr.trim());
-            long lastSeen = Long.parseLong(lastSeenStr.trim());
-            boolean tampered = Boolean.parseBoolean(tamperedStr.trim());
+            if (lines.size() == 4) {
+                long firstLaunch = Long.parseLong(lines.get(0));
+                long lastSeen = Long.parseLong(lines.get(1));
+                boolean tampered = Boolean.parseBoolean(lines.get(2));
+                String checksum = lines.get(3);
 
-            String expectedChecksum = computeChecksum(firstLaunch, lastSeen, tampered);
-            if (!expectedChecksum.equals(checksum.trim())) {
-                return new TrialData(firstLaunch, lastSeen, true); // tampered
+                String expectedChecksum = computeOldChecksum(firstLaunch, lastSeen, tampered);
+                if (!expectedChecksum.equals(checksum)) {
+                    return new TrialData(firstLaunch, lastSeen, lastSeen - firstLaunch, lastSeen, true);
+                }
+                return new TrialData(firstLaunch, lastSeen, lastSeen - firstLaunch, lastSeen, tampered);
+            } else if (lines.size() >= 6) {
+                long firstLaunch = Long.parseLong(lines.get(0));
+                long lastSeen = Long.parseLong(lines.get(1));
+                long elapsedTimeMs = Long.parseLong(lines.get(2));
+                long highestTimeRecorded = Long.parseLong(lines.get(3));
+                boolean tampered = Boolean.parseBoolean(lines.get(4));
+                String checksum = lines.get(5);
+
+                String expectedChecksum = computeNewChecksum(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, tampered);
+                if (!expectedChecksum.equals(checksum)) {
+                    return new TrialData(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, true);
+                }
+                return new TrialData(firstLaunch, lastSeen, elapsedTimeMs, highestTimeRecorded, tampered);
             }
-
-            return new TrialData(firstLaunch, lastSeen, tampered);
         } catch (Exception e) {
             return null;
         }
+        return null;
     }
 
     private void saveTrialData(TrialData data) {
-        writeTrialFile(primaryTrialFile, data);
-        writeTrialFile(backupTrialFile, data);
+        writeTrialToRegistry(data);
+        writeTrialFile(persistentBackupTrialFile, data);
     }
 
     private void writeTrialFile(File file, TrialData data) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
             pw.println(data.firstLaunch);
             pw.println(data.lastSeen);
+            pw.println(data.elapsedTimeMs);
+            pw.println(data.highestTimeRecorded);
             pw.println(data.tampered);
-            pw.println(computeChecksum(data.firstLaunch, data.lastSeen, data.tampered));
+            pw.println(computeNewChecksum(data.firstLaunch, data.lastSeen, data.elapsedTimeMs, data.highestTimeRecorded, data.tampered));
         } catch (Exception e) {
             // ignore
         }
     }
 
-    private String computeChecksum(long firstLaunch, long lastSeen, boolean tampered) {
+    private String computeOldChecksum(long firstLaunch, long lastSeen, boolean tampered) {
+        return computeChecksum(firstLaunch + ":" + lastSeen + ":" + tampered + ":" + TRIAL_SECRET_SALT);
+    }
+
+    private String computeNewChecksum(long firstLaunch, long lastSeen, long elapsedTimeMs, long highestTimeRecorded, boolean tampered) {
+        return computeChecksum(firstLaunch + ":" + lastSeen + ":" + elapsedTimeMs + ":" + highestTimeRecorded + ":" + tampered + ":" + TRIAL_SECRET_SALT);
+    }
+
+    private String computeChecksum(String rawData) {
         try {
-            String data = firstLaunch + ":" + lastSeen + ":" + tampered + ":" + TRIAL_SECRET_SALT;
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = md.digest(rawData.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (byte b : hash) {
                 sb.append(String.format("%02x", b));
@@ -276,16 +399,59 @@ public class LicenseService {
         }
     }
 
-    private boolean isLicenseValid() {
-        if (!licenseFile.exists()) {
-            return false;
-        }
-        try (BufferedReader br = new BufferedReader(new FileReader(licenseFile))) {
-            String key = br.readLine();
-            return verifyLicenseKey(key);
+    private String readLicenseFromRegistry() {
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node(this.registryNodePath);
+            return prefs.get("licenseKey", null);
         } catch (Exception e) {
-            return false;
+            return null;
         }
+    }
+
+    private void writeLicenseToRegistry(String key) {
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userRoot().node(this.registryNodePath);
+            if (key != null) {
+                prefs.put("licenseKey", key.trim());
+            } else {
+                prefs.remove("licenseKey");
+            }
+            prefs.flush();
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    private boolean isLicenseValid() {
+        // 1. Check if local license file exists and is valid
+        if (licenseFile.exists()) {
+            try (BufferedReader br = new BufferedReader(new FileReader(licenseFile))) {
+                String key = br.readLine();
+                if (verifyLicenseKey(key)) {
+                    // Sync to registry backup if not already present
+                    writeLicenseToRegistry(key);
+                    return true;
+                }
+            } catch (Exception e) {
+                // ignore and fall through
+            }
+        }
+
+        // 2. If file doesn't exist or is invalid, try to restore from Registry
+        String registryKey = readLicenseFromRegistry();
+        if (verifyLicenseKey(registryKey)) {
+            try {
+                FileWriter writer = new FileWriter(licenseFile);
+                writer.write(registryKey.trim());
+                writer.close();
+                return true;
+            } catch (IOException e) {
+                // ignore and return true since the registry version is valid
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean verifyLicenseKey(String key) {

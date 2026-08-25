@@ -273,7 +273,11 @@ function LoadProduct({ onSwitchPage, onOpenModal }) {
               <button className="popup-button secondary" onClick={() => handleAction('logEnquiry')}>Log Enquiry</button>
               <button className="popup-button secondary" style={{ background: '#000' }} onClick={() => handleAction('logSale')}>Mark Sold</button>
               <button className="popup-button" style={{ background: '#ffc107', color: '#000' }} 
-                      onClick={() => { sessionStorage.setItem('modifyDesignNo', product.designNo); onSwitchPage('modify-product'); }}>
+                      onClick={() => { 
+                        sessionStorage.setItem('modifyDesignNo', product.designNo); 
+                        sessionStorage.setItem('modifyReferrer', 'load-product');
+                        onSwitchPage('modify-product'); 
+                      }}>
                 Modify
               </button>
             </div>

@@ -70,6 +70,15 @@ function Home({ onSwitchPage, user }) {
   };
 
   const checkPricePopup = () => {
+    // 1. If updated today, never show banner
+    const pricesUpdatedToday = localStorage.getItem("pricesUpdatedToday");
+    const todayStr = new Date().toDateString();
+    if (pricesUpdatedToday === todayStr) {
+      setShowPopup(false);
+      return;
+    }
+
+    // 2. Otherwise, check standard 6-hour dismissal cooldown
     const lastDismissed = localStorage.getItem("pricePopupDismissed");
     const now = new Date();
     const lastDismissedDate = lastDismissed ? new Date(lastDismissed) : null;
@@ -357,6 +366,11 @@ function Home({ onSwitchPage, user }) {
                   <i className="fas fa-database"></i> Backup Settings
                 </button>
               )}
+              {hasRole('ROLE_ADMIN') && (
+                <button type="button" className="dropdown-item" onClick={() => onSwitchPage('karat-ratios')}>
+                  <i className="fas fa-percentage"></i> Gold Karat Ratios
+                </button>
+              )}
               <button type="button" className="dropdown-item" onClick={handleLogout}>
                 <i className="fas fa-sign-out-alt"></i> Logout
               </button>
@@ -373,21 +387,15 @@ function Home({ onSwitchPage, user }) {
           </div>
         </div>
 
-        {/* Price Reminder Popup */}
+        {/* Price Reminder Top Banner */}
         {showPopup && (
-          <div className="popup-overlay">
-            <div className="popup-content">
-              <button className="popup-close-btn" onClick={closePopup}>&times;</button>
-              <div className="popup-header">
-                <h2>Set Prices Reminder</h2>
-              </div>
-              <div className="popup-body">
-                <p>Have you updated the prices today?</p>
-              </div>
-              <div className="popup-actions">
-                <button className="popup-button primary" onClick={redirectToSetPrices}>Set Prices Now</button>
-                <button className="popup-button secondary" onClick={dismissForToday}>Already Updated</button>
-              </div>
+          <div className="price-reminder-banner">
+            <span className="banner-message">
+              ⚠️ <strong>Price Reminder:</strong> Gold and silver rates have not been updated today.
+            </span>
+            <div className="banner-actions">
+              <button className="banner-btn primary" onClick={redirectToSetPrices}>Set Prices Now</button>
+              <button className="banner-btn secondary" onClick={dismissForToday}>Dismiss</button>
             </div>
           </div>
         )}
@@ -606,7 +614,11 @@ function Home({ onSwitchPage, user }) {
               </button>
             )}
             {(hasRole('ROLE_EDITOR') || hasRole('ROLE_ADMIN')) && (
-              <button className="action-button" onClick={() => onSwitchPage('modify-product')}>
+              <button className="action-button" onClick={() => {
+                sessionStorage.removeItem('modifyDesignNo');
+                sessionStorage.removeItem('modifyReferrer');
+                onSwitchPage('modify-product');
+              }}>
                 <i className="fas fa-edit"></i> Modify Product
               </button>
             )}

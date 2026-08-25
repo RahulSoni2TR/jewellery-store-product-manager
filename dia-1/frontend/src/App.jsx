@@ -23,6 +23,7 @@ import CustomFoldableTags from './components/CustomFoldableTags.jsx';
 import ImportData from './components/ImportData.jsx';
 import Permissions from './components/Permissions.jsx';
 import PriceHistory from './components/PriceHistory.jsx';
+import KaratRatios from './components/KaratRatios.jsx';
 import Modal from './components/Modal.jsx'; 
 import './components/Home.css';
 
@@ -178,6 +179,8 @@ function App() {
           <Permissions onSwitchPage={handleSwitchPage} onOpenModal={openModal} />
         ) : activePage === 'price-history' ? (
           <PriceHistory onSwitchPage={handleSwitchPage} />
+        ) : activePage === 'karat-ratios' ? (
+          <KaratRatios onSwitchPage={handleSwitchPage} />
         ) : (
           <main className="home-main">
             {activePage === 'login' && (

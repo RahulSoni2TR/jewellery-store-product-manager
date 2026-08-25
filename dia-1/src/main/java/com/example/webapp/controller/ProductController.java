@@ -2,13 +2,11 @@ package com.example.webapp.controller;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,7 +17,6 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,8 +33,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,8 +47,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ExtendedModelMap;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -66,15 +59,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.webapp.entity.VerificationConfig;
-// import com.amazonaws.auth.AWSStaticCredentialsProvider;
-// import com.amazonaws.auth.BasicAWSCredentials;
-// import com.amazonaws.services.s3.AmazonS3;
-// import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-// import com.amazonaws.services.s3.model.CannedAccessControlList;
-// import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.example.webapp.exceptions.AddProductException;
 import com.example.webapp.exceptions.CategoryNotFoundException;
-import com.example.webapp.exceptions.FileConversionException;
 import com.example.webapp.exceptions.FileUploadException;
 import com.example.webapp.exceptions.InvalidCalculationException;
 import com.example.webapp.exceptions.InvalidDateRangeException;
@@ -98,14 +84,14 @@ import com.example.webapp.models.FrequencyRequest;
 import com.example.webapp.models.LogRequest;
 import com.example.webapp.models.Orders;
 import com.example.webapp.models.Product;
+import com.example.webapp.models.ProductForm;
+import com.example.webapp.models.ProductUpdateForm;
 import com.example.webapp.models.ProductPage;
 import com.example.webapp.models.RateHistory;
 import com.example.webapp.service.LogService;
 import com.example.webapp.service.ProductService;
 import com.example.webapp.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.MultiFormatWriter;
@@ -114,7 +100,6 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.servlet.http.HttpSession;
 
@@ -139,45 +124,37 @@ public class ProductController {
 	@Autowired
 	private LogService logService;
 	
+	@Autowired
+	private VerificationConfigRepository verificationConfigRepository;
+
 	@Value("${app.server.host}")
-    private String serverHost;
+	private String serverHost;
 
-    @Value("${app.server.port}")
-    private String serverPort;
-    
-    @Value("${app.base-url}")
-    private String baseUrl;
+	@Value("${app.server.port}")
+	private String serverPort;
+	
+	@Value("${app.base-url}")
+	private String baseUrl;
 
-    @Value("${app.qr-dir}")
-    private String qrDir;
+	@Value("${app.qr-dir}")
+	private String qrDir;
 
-    @Value("${app.qr-public-path}")
-    private String qrPublicPath;
-    
-    @Value("${save.uploads.path}")
-    private String uploadDir;
-
-    
-
-    @Autowired
-    private VerificationConfigRepository verificationConfigRepository;
-
-
-//	@Autowired
-//	private AmazonS3 s3Client;
+	@Value("${app.qr-public-path}")
+	private String qrPublicPath;
+	
+	@Value("${save.uploads.path}")
+	private String uploadDir;
 
 	private static final Logger logger = LoggerFactory.getLogger(ProductController.class);
 	private static final int TAGS_PER_PAGE = 40;
-	private static final int COLS = 10;   // ✅ from image
-//	private static final int ROWS = 10;  // ✅ from image
-	private static final float TAG_GAP_X_MM = 2.0f;   // horizontal gap
-	private static final float TAG_GAP_Y_MM = 0f;   // vertical gap (your issue)
+	private static final int COLS = 10;
+	private static final float TAG_GAP_X_MM = 2.0f;
+	private static final float TAG_GAP_Y_MM = 0f;
 
 	private static final float TAG_W_MM = 18f;
 	private static final float TAG_H_MM = 73f;
 	private static final float FOLD_MM  = 35f;
-	private static final float PAGE_MARGIN_MM = 3f;   // start after 3 mm
-//	private static final float TAG_GAP_MM     = 2f;   // 1 mm gap between tags
+	private static final float PAGE_MARGIN_MM = 3f;
 
 
 
@@ -195,7 +172,6 @@ public class ProductController {
 	@PreAuthorize("hasRole('ADMIN')")
 	@GetMapping("/remove-product")
 	public String removeProductPage() {
-		System.out.println("came inside remove");
 		return "forward:/index.html";
 	}
 
@@ -341,278 +317,203 @@ public class ProductController {
 	}
 
 	@PostMapping("/add")
-	public ResponseEntity<Map<String, Object>> addProduct(@RequestParam("productName") String productName,
-			@RequestParam(value = "price", required = false) BigDecimal price,
-			@RequestParam("stockQuantity") Integer stockQuantity, @RequestParam("categoryId") Integer categoryId,
-			@RequestParam("imageUrl") MultipartFile imageFile,
-			@RequestParam(value = "orderId", required = false) String orderId,
-
-			// Category-specific fields
-			@RequestParam(value = "net", required = false) BigDecimal net,
-			@RequestParam(value = "chainNet", required = false) BigDecimal chainNet,
-			@RequestParam(value = "pcs", required = false) Integer pcs,
-			@RequestParam(value = "diaWeight", required = false) BigDecimal diaWeight,
-			@RequestParam(value = "diaRate", required = false) BigDecimal diaRate,
-			@RequestParam(value = "diaSt", required = false) BigDecimal diaSt,
-			@RequestParam(value = "diaStRate", required = false) BigDecimal diaStRate,
-			@RequestParam(value = "remarks", required = false) String remarks,
-
-			@RequestParam(value = "gross", required = false) BigDecimal gross,
-			@RequestParam(value = "vilandiCt", required = false) BigDecimal vilandiCt,
-			@RequestParam(value = "diamondsCt", required = false) BigDecimal diamondsCt,
-			@RequestParam(value = "diamondsCtRate", required = false) BigDecimal diamondsCtRate,
-			@RequestParam(value = "otherStonesCt", required = false) BigDecimal otherStonesCt,
-			@RequestParam(value = "openStRate", required = false) BigDecimal openStRate,
-			@RequestParam(value = "beadsCt", required = false) BigDecimal beadsCt,
-			@RequestParam(value = "pearlsGm", required = false) BigDecimal pearlsGm,
-			@RequestParam(value = "others", required = false) String others,
-			@RequestParam(value = "designNoOS", required = false) String designNoOS,
-			@RequestParam(value = "designNoDR", required = false) String designNoDR,
-			@RequestParam(value = "designNo", required = false) String designNo,
-			@RequestParam(value = "designNoEarring", required = false) String designNoEarring,
-			@RequestParam(value = "designNoVilandi", required = false) String designNoVilandi,
-			@RequestParam(value = "designNoJadtar", required = false) String designNoJadtar,
-			@RequestParam(value = "earringNet", required = false) BigDecimal earringNet,
-			@RequestParam(value = "earringPcs", required = false) Integer earringPcs,
-			@RequestParam(value = "diamondWeightEarring", required = false) BigDecimal diamondWeightEarring,
-			@RequestParam(value = "diamondsWtRate", required = false) BigDecimal diamondsWtRate,
-			@RequestParam(value = "earSt", required = false) BigDecimal earSt,
-			@RequestParam(value = "earStRate", required = false) BigDecimal earStRate,
-			@RequestParam(value = "vilandi", required = false) BigDecimal vilandi,
-			@RequestParam(value = "vilandiRate", required = false) BigDecimal vilandiRate,
-			@RequestParam(value = "stones", required = false) BigDecimal stones,
-			@RequestParam(value = "vilandiStoneRate", required = false) BigDecimal vilandiStoneRate,
-			@RequestParam(value = "beadsVilandi", required = false) BigDecimal beadsVilandi,
-			@RequestParam(value = "vilandiBeadsRate", required = false) BigDecimal vilandiBeadsRate,
-			@RequestParam(value = "pearlsVilandi", required = false) BigDecimal pearlsVilandi,
-			@RequestParam(value = "vilandiPearlRate", required = false) BigDecimal vilandiPearlRate,
-			@RequestParam(value = "ssPearlCt", required = false) BigDecimal ssPearlCt,
-			@RequestParam(value = "vilandiSSPearlRate", required = false) BigDecimal vilandiSSPearlRate,
-			@RequestParam(value = "realStone", required = false) BigDecimal realStone,
-			@RequestParam(value = "vilandiFitting", required = false) BigDecimal vilandiFitting,
-			@RequestParam(value = "jadtarGross", required = false) BigDecimal jadtarGross,
-			@RequestParam(value = "jadtarNet", required = false) BigDecimal jadtarNet,
-			@RequestParam(value = "jadtarStones", required = false) BigDecimal jadtarStones,
-			@RequestParam(value = "jadtarStoneRate", required = false) BigDecimal jadtarStoneRate,
-			@RequestParam(value = "jadtarBeads", required = false) BigDecimal jadtarBeads,
-			@RequestParam(value = "jadtarBeadsRate", required = false) BigDecimal jadtarBeadsRate,
-			@RequestParam(value = "jadtarPearls", required = false) BigDecimal jadtarPearls,
-			@RequestParam(value = "jadtarPearlRate", required = false) BigDecimal jadtarPearlsRate,
-			@RequestParam(value = "jadtarSSPearl", required = false) BigDecimal jadtarSSPearl,
-			@RequestParam(value = "jadtarSSPearlRate", required = false) BigDecimal jadtarSSPearlRate,
-			@RequestParam(value = "jadtarRealStone", required = false) BigDecimal jadtarRealStone,
-			@RequestParam(value = "jadtarFitting", required = false) BigDecimal jadtarFittingRate,
-			@RequestParam(value = "mozStone", required = false) BigDecimal mozStone,
-			@RequestParam(value = "mozStoneRate", required = false) BigDecimal mozStoneRate,
-			@RequestParam(value = "karatId", required = false) BigDecimal karat,
-			@RequestParam(value = "drLabour", required = false) BigDecimal drLabour,
-			@RequestParam(value = "osLabour", required = false) BigDecimal osLabour,
-			@RequestParam(value = "chainLabour", required = false) BigDecimal chainLabour,
-			@RequestParam(value = "diamondLabour", required = false) BigDecimal diamondLabour,
-			@RequestParam(value = "vilandiLabour", required = false) BigDecimal vilandiLabour,
-			@RequestParam(value = "jadtarLabour", required = false) BigDecimal jadtarLabour,
-			@RequestParam(value = "drLabourAll", required = false) BigDecimal drLabourAll,
-			@RequestParam(value = "osLabourAll", required = false) BigDecimal osLabourAll,
-			@RequestParam(value = "chainLabourAll", required = false) BigDecimal chainLabourAll,
-			@RequestParam(value = "diamondLabourAll", required = false) BigDecimal diamondLabourAll,
-			@RequestParam(value = "vilandiLabourAll", required = false) BigDecimal vilandiLabourAll,
-			@RequestParam(value = "jadtarLabourAll", required = false) BigDecimal jadtarLabourAll,
-			@RequestParam(value = "categoryId", required = false) Long categoryIds,
-			@RequestParam(value = "subCategoryId", required = false) Long subCategoryId,
-			@RequestParam(value = "diamondGross", required = false) BigDecimal diamondGross,
-			@RequestParam(value = "earringGross", required = false) BigDecimal earringGross,
-			@RequestParam(value = "chainGross", required = false) BigDecimal chainGross,
-			@RequestParam(value = "ssPearlCts", required = false) BigDecimal ssPearlCts,
-			@RequestParam(value = "osSSPearlRate", required = false) BigDecimal osSSPearlRate,
-			 @RequestParam(value = "vilandiGross", required = false) BigDecimal vilandiGross,
-			 @RequestParam(value = "customFields", required = false) String customFieldsJson,
-			 @RequestParam(value = "drLabourP", required = false) BigDecimal drLabourP,
-				@RequestParam(value = "osLabourP", required = false) BigDecimal osLabourP,
-				@RequestParam(value = "chainLabourP", required = false) BigDecimal chainLabourP,
-				 @RequestParam(value = "vilandiLabourP", required = false) BigDecimal vilandiLabourP,
-				 @RequestParam(value = "jadtarLabourP", required = false) BigDecimal jadtarLabourP,
-				@RequestParam(value = "jadvilandi", required = false) BigDecimal jadvilandi,
-				@RequestParam(value = "jadvilandiRate", required = false) BigDecimal jadvilandiRate
-				) {
-
+	public ResponseEntity<Map<String, Object>> addProduct(@ModelAttribute ProductForm form) {
 		try {
-			Product product = new Product();
-			// Process the image file
-			String imageUrl = saveImageFile(imageFile);
-			// Create a Product entity from the parameters
-			product.setItem(productName);
-			product.setPrice(price);
-			product.setStockQuantity(stockQuantity);
-			product.setCategoryId(categoryId);
-			product.setParentCategoryId(categoryIds);
-			product.setSubCategoryId(subCategoryId);
-			product.setImageUrl(imageUrl);// Set the image URL
-			product.setRemarks(remarks);
-			product.setKarat(karat);
-			if (customFieldsJson != null && !customFieldsJson.isEmpty()) {
-	            product.setCustomFields(customFieldsJson);
-	        }
-			gross    = scaleTo3(gross);
-		    net      = scaleTo3(net);
-		    pearlsGm = scaleTo3(pearlsGm);
-
-		    // if there are variants by category, normalize them too if needed
-		    jadtarGross   = scaleTo3(jadtarGross);
-		    jadtarNet     = scaleTo3(jadtarNet);
-		    jadtarPearls  = scaleTo3(jadtarPearls);
-		    chainNet      = scaleTo3(chainNet);
-		    chainGross    = scaleTo3(chainGross);
-		    diamondGross  = scaleTo3(diamondGross);
-		    earringGross  = scaleTo3(earringGross);
-		    vilandiGross  = scaleTo3(vilandiGross);
-		    pearlsVilandi = scaleTo3(pearlsVilandi);
-			// Set category-specific fields based on categoryId
-			if (categoryId == 1 && (subCategoryId != 19 && subCategoryId !=20)) { 
-				product.setNet(net);
-				product.setGross(diamondGross);
-				product.setPcs(pcs);
-				product.setDiamondsCt(diaWeight);
-				product.setDiaRt(diaRate);
-				product.setDesignNo(designNoDR);
-				product.setLabour(diamondLabour);
-				product.setLabourAll(diamondLabourAll);
-				product.setOtherStonesCt(diaSt);
-				product.setOtherStonesRt(diaStRate);
-				product.setLabourP(drLabourP);
-			} else if (categoryId == 2) { // Open Setting
-				product.setGross(gross);
-				product.setNet(net);
-				product.setVilandiCt(vilandiCt);
-				product.setvRate(vilandiRate);
-				product.setDiamondsCt(diamondsCt);
-				product.setDiaRt(diamondsCtRate);
-				product.setBeadsCt(beadsCt);
-				product.setBdRate(vilandiBeadsRate);
-				product.setPearlsGm(pearlsGm);
-				product.setPrlRate(vilandiPearlRate);
-				product.setSsPearlCt(ssPearlCts);
-				product.setSsRate(osSSPearlRate);
-				product.setOtherStonesCt(otherStonesCt);
-				product.setDesignNo(designNoOS);
-				product.setLabour(osLabour);
-				product.setLabourAll(osLabourAll);
-				product.setOtherStonesCt(otherStonesCt);
-				product.setOtherStonesRt(openStRate);
-				product.setLabourP(osLabourP);
-			} else if (categoryId == 3) { // Chains
-				product.setDesignNo(designNo);
-				product.setNet(chainNet);
-				product.setGross(chainGross);
-				product.setLabour(chainLabour);
-				product.setLabourAll(chainLabourAll);
-				product.setLabourP(chainLabourP);
-			} else if (subCategoryId == 19 || subCategoryId ==20) { // Diamond Earrings
-				product.setDesignNo(designNoEarring);
-				product.setNet(earringNet);
-				product.setGross(earringGross);
-				product.setPcs(earringPcs);
-				product.setDiamondsCt(diamondWeightEarring);
-				product.setDiaRt(diamondsWtRate);
-				product.setLabour(diamondLabour);
-				product.setLabourAll(diamondLabourAll);
-				product.setOtherStonesCt(earSt);
-				product.setOtherStonesRt(earStRate);
-				product.setLabourP(drLabourP);
-			} else if (categoryId == 4) { // Vilandi
-				product.setDesignNo(designNoVilandi);
-				product.setGross(vilandiGross);
-				product.setNet(net);
-				product.setVilandiCt(vilandi);
-				product.setvRate(vilandiRate);
-				product.setStones(stones);
-				product.setStRate(vilandiStoneRate);
-				product.setBeadsCt(beadsVilandi);
-				product.setBdRate(vilandiBeadsRate);
-				product.setPearlsGm(pearlsVilandi);
-				product.setPrlRate(vilandiPearlRate);
-				product.setSsPearlCt(ssPearlCt);
-				product.setSsRate(vilandiSSPearlRate);
-				product.setRealStone(realStone);
-				product.setFitting(vilandiFitting);
-				product.setLabour(vilandiLabour);
-				product.setLabourAll(vilandiLabourAll);
-				product.setLabourP(vilandiLabourP);
-			} else if (categoryId == 5) { // Jadtar Register
-				product.setDesignNo(designNoJadtar);
-				product.setGross(jadtarGross);
-				product.setNet(jadtarNet);
-				product.setStones(jadtarStones);
-				product.setStRate(jadtarStoneRate);
-				product.setBeadsCt(jadtarBeads);
-				product.setBdRate(jadtarBeadsRate);
-				product.setPearlsGm(jadtarPearls);
-				product.setPrlRate(jadtarPearlsRate);
-				product.setSsPearlCt(jadtarSSPearl);
-				product.setSsRate(jadtarSSPearlRate);
-				product.setRealStone(jadtarRealStone);
-				product.setFitting(jadtarFittingRate);
-				product.setMozonite(mozStone);
-				product.setmRate(mozStoneRate);
-				product.setLabour(jadtarLabour);
-				product.setLabourAll(jadtarLabourAll);
-				product.setLabourP(jadtarLabourP);
-				product.setVilandiCt(jadvilandi);
-				product.setvRate(jadvilandiRate);
+			String imageUrl = "/uploads/unavailable.jpg";
+			if (form.getImageUrl() != null && !form.getImageUrl().isEmpty()) {
+				imageUrl = saveImageFile(form.getImageUrl());
 			}
 
-			Orders order;
-			Optional<Orders> existingOrderOpt = productService.findByOrderId(orderId);
-			//System.out.println("order id is "+orderId);
-			if (existingOrderOpt.isPresent()) {
-			    // User selected from existing list
-			    order = existingOrderOpt.get();
-			    if (order.isAssigned()) {
-			        throw new IllegalArgumentException("Order ID already assigned");
-			    }
-			    order.setAssigned(true);
-			    order.setAssignedProduct(product);
-			    product.setOrders(order);
-			}
-			 else {
-				    // User gave a custom ID
-				    order = new Orders();
-			//	    System.out.println("new order id is "+orderId);
-				    order.setOrderId(orderId);
-				    order.setCategoryId(product.getCategoryId());
-				    order.setAssigned(true);
-				    order.setAssignedProduct(product);
-				    product.setOrders(order);
-				}
-			
-			String qrUrl = baseUrl + "/loadProductByDesignNo/" + product.getDesignNo();
+			Product product = mapFormToProduct(form, imageUrl);
 
-			// 2. Define save location
-			Files.createDirectories(Paths.get(qrDir));
-			String qrFileName = "QR_" + product.getDesignNo() + ".png";
-			String qrFilePath = qrDir + qrFileName;
+			// Handle order assignment
+			assignOrderToProduct(product, form.getOrderId());
 
-			// 3. Generate QR
-			generateQRCodeImage(qrUrl, qrFilePath);
-			
-			String qr_path=qrPublicPath + qrFileName;
-			// 4. Save QR path in product
-			product.setQrCodePath(qr_path);
+			// Generate QR Code
+			generateAndSetProductQrCode(product);
+
 			// Add the product using the service
 			productService.addProduct(product);
-			//	productService.saveOrders(order);
+
 			Map<String, Object> response = new HashMap<>();
 			response.put("message", "Product added successfully!");
 			response.put("success", true);
 			return ResponseEntity.ok(response);
-		}catch (IllegalArgumentException e) {
-		    // Let known service exceptions bubble up unchanged
-		    throw e;
-		} 
-		
-		catch (Exception e) {
-			logger.error("Error occurred while adding product: {}", productName, e);
-			throw new AddProductException("Error occurred while adding product: " + productName, e);
+		} catch (IllegalArgumentException e) {
+			throw e;
+		} catch (Exception e) {
+			logger.error("Error occurred while adding product: {}", form.getProductName(), e);
+			throw new AddProductException("Error occurred while adding product: " + form.getProductName(), e);
 		}
+	}
+
+	private Product mapFormToProduct(ProductForm form, String imageUrl) {
+		Product product = new Product();
+		product.setItem(form.getProductName());
+		product.setPrice(form.getPrice());
+		product.setStockQuantity(form.getStockQuantity());
+		product.setCategoryId(form.getCategoryId());
+		product.setParentCategoryId(form.getCategoryId() != null ? form.getCategoryId().longValue() : null);
+		product.setSubCategoryId(form.getSubCategoryId());
+		product.setImageUrl(imageUrl);
+		product.setRemarks(form.getRemarks());
+		product.setKarat(form.getKaratId());
+		if (form.getCustomFields() != null && !form.getCustomFields().isEmpty()) {
+			product.setCustomFields(form.getCustomFields());
+		}
+
+		mapCategorySpecificFields(product, form);
+		return product;
+	}
+
+	private void mapCategorySpecificFields(Product product, ProductForm form) {
+		BigDecimal gross = scaleTo3(form.getGross());
+		BigDecimal net = scaleTo3(form.getNet());
+		BigDecimal pearlsGm = scaleTo3(form.getPearlsGm());
+
+		BigDecimal jadtarGross = scaleTo3(form.getJadtarGross());
+		BigDecimal jadtarNet = scaleTo3(form.getJadtarNet());
+		BigDecimal jadtarPearls = scaleTo3(form.getJadtarPearls());
+		BigDecimal chainNet = scaleTo3(form.getChainNet());
+		BigDecimal chainGross = scaleTo3(form.getChainGross());
+		BigDecimal diamondGross = scaleTo3(form.getDiamondGross());
+		BigDecimal earringGross = scaleTo3(form.getEarringGross());
+		BigDecimal vilandiGross = scaleTo3(form.getVilandiGross());
+		BigDecimal pearlsVilandi = scaleTo3(form.getPearlsVilandi());
+
+		Integer categoryId = form.getCategoryId();
+		Long subCategoryId = form.getSubCategoryId();
+
+		if (categoryId == 1 && (subCategoryId == null || (subCategoryId != 19 && subCategoryId != 20))) {
+			product.setNet(net);
+			product.setGross(diamondGross);
+			product.setPcs(form.getPcs());
+			product.setDiamondsCt(form.getDiaWeight());
+			product.setDiaRt(form.getDiaRate());
+			product.setDesignNo(form.getDesignNoDR());
+			product.setLabour(form.getDiamondLabour());
+			product.setLabourAll(form.getDiamondLabourAll());
+			product.setOtherStonesCt(form.getDiaSt());
+			product.setOtherStonesRt(form.getDiaStRate());
+			product.setLabourP(form.getDrLabourP());
+		} else if (categoryId == 2) { // Open Setting
+			product.setGross(gross);
+			product.setNet(net);
+			product.setVilandiCt(form.getVilandiCt());
+			product.setvRate(form.getVilandiRate());
+			product.setDiamondsCt(form.getDiamondsCt());
+			product.setDiaRt(form.getDiamondsCtRate());
+			product.setBeadsCt(form.getBeadsCt());
+			product.setBdRate(form.getVilandiBeadsRate());
+			product.setPearlsGm(pearlsGm);
+			product.setPrlRate(form.getVilandiPearlRate());
+			product.setSsPearlCt(form.getSsPearlCts());
+			product.setSsRate(form.getOsSSPearlRate());
+			product.setOtherStonesCt(form.getOtherStonesCt());
+			product.setDesignNo(form.getDesignNoOS());
+			product.setLabour(form.getOsLabour());
+			product.setLabourAll(form.getOsLabourAll());
+			product.setOtherStonesRt(form.getOpenStRate());
+			product.setLabourP(form.getOsLabourP());
+		} else if (categoryId == 3) { // Chains
+			product.setDesignNo(form.getDesignNo());
+			product.setNet(chainNet);
+			product.setGross(chainGross);
+			product.setLabour(form.getChainLabour());
+			product.setLabourAll(form.getChainLabourAll());
+			product.setLabourP(form.getChainLabourP());
+		} else if (subCategoryId != null && (subCategoryId == 19 || subCategoryId == 20)) { // Diamond Earrings
+			product.setDesignNo(form.getDesignNoEarring());
+			product.setNet(form.getEarringNet());
+			product.setGross(earringGross);
+			product.setPcs(form.getEarringPcs());
+			product.setDiamondsCt(form.getDiamondWeightEarring());
+			product.setDiaRt(form.getDiamondsWtRate());
+			product.setLabour(form.getDiamondLabour());
+			product.setLabourAll(form.getDiamondLabourAll());
+			product.setOtherStonesCt(form.getEarSt());
+			product.setOtherStonesRt(form.getEarStRate());
+			product.setLabourP(form.getDrLabourP());
+		} else if (categoryId == 4) { // Vilandi
+			product.setDesignNo(form.getDesignNoVilandi());
+			product.setGross(vilandiGross);
+			product.setNet(net);
+			product.setVilandiCt(form.getVilandi());
+			product.setvRate(form.getVilandiRate());
+			product.setStones(form.getStones());
+			product.setStRate(form.getVilandiStoneRate());
+			product.setBeadsCt(form.getBeadsVilandi());
+			product.setBdRate(form.getVilandiBeadsRate());
+			product.setPearlsGm(pearlsVilandi);
+			product.setPrlRate(form.getVilandiPearlRate());
+			product.setSsPearlCt(form.getSsPearlCt());
+			product.setSsRate(form.getVilandiSSPearlRate());
+			product.setRealStone(form.getRealStone());
+			product.setFitting(form.getVilandiFitting());
+			product.setLabour(form.getVilandiLabour());
+			product.setLabourAll(form.getVilandiLabourAll());
+			product.setLabourP(form.getVilandiLabourP());
+		} else if (categoryId == 5) { // Jadtar Register
+			product.setDesignNo(form.getDesignNoJadtar());
+			product.setGross(jadtarGross);
+			product.setNet(jadtarNet);
+			product.setStones(form.getJadtarStones());
+			product.setStRate(form.getJadtarStoneRate());
+			product.setBeadsCt(form.getJadtarBeads());
+			product.setBdRate(form.getJadtarBeadsRate());
+			product.setPearlsGm(jadtarPearls);
+			product.setPrlRate(form.getJadtarPearlRate());
+			product.setSsPearlCt(form.getJadtarSSPearl());
+			product.setSsRate(form.getJadtarSSPearlRate());
+			product.setRealStone(form.getJadtarRealStone());
+			product.setFitting(form.getJadtarFitting());
+			product.setMozonite(form.getMozStone());
+			product.setmRate(form.getMozStoneRate());
+			product.setLabour(form.getJadtarLabour());
+			product.setLabourAll(form.getJadtarLabourAll());
+			product.setLabourP(form.getJadtarLabourP());
+			product.setVilandiCt(form.getJadvilandi());
+			product.setvRate(form.getJadvilandiRate());
+		}
+	}
+
+	private void assignOrderToProduct(Product product, String orderId) {
+		Orders order;
+		Optional<Orders> existingOrderOpt = productService.findByOrderId(orderId);
+		if (existingOrderOpt.isPresent()) {
+			// User selected from existing list
+			order = existingOrderOpt.get();
+			if (order.isAssigned()) {
+				throw new IllegalArgumentException("Order ID already assigned");
+			}
+			order.setAssigned(true);
+			order.setAssignedProduct(product);
+			product.setOrders(order);
+		} else {
+			// User gave a custom ID
+			order = new Orders();
+			order.setOrderId(orderId);
+			order.setCategoryId(product.getCategoryId());
+			order.setAssigned(true);
+			order.setAssignedProduct(product);
+			product.setOrders(order);
+		}
+	}
+
+	private void generateAndSetProductQrCode(Product product) throws WriterException, IOException {
+		String qrUrl = baseUrl + "/loadProductByDesignNo/" + product.getDesignNo();
+
+		// Define save location
+		Files.createDirectories(Paths.get(qrDir));
+		String qrFileName = "QR_" + product.getDesignNo() + ".png";
+		String qrFilePath = qrDir + qrFileName;
+
+		// Generate QR
+		generateQRCodeImage(qrUrl, qrFilePath);
+		
+		String qr_path = qrPublicPath + qrFileName;
+		// Save QR path in product
+		product.setQrCodePath(qr_path);
 	}	@GetMapping("/loadProductByDesignNo/{designNo:.+}")
 	public String getProductByDesignNo(@PathVariable("designNo") String designNo) {
 	    return "forward:/index.html"; 
@@ -700,7 +601,7 @@ public class ProductController {
 	    // Generate higher resolution (300x300 px)
 	    BitMatrix bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, 300, 300, hints);
 
-	    Path path = FileSystems.getDefault().getPath(filePath);
+	    Path path = Paths.get(filePath);
 	    MatrixToImageWriter.writeToPath(bitMatrix, "PNG", path);
 
 	    return filePath;
@@ -800,8 +701,6 @@ public class ProductController {
 				@RequestParam(value = "verifiedOnly", required = false, defaultValue = "false") Boolean verifiedOnly,
 				@RequestParam(value = "unverifiedOnly", required = false, defaultValue = "false") Boolean unverifiedOnly,
 					HttpSession session) {
-	System.out.println("search term is "+searchTerm+" and search by is "+searchBy);
-	System.out.println("sort by is "+sortBy+" and verified only is "+verifiedOnly);
 				if (page < 0 || size <= 0) {
 					throw new InvalidPaginationException("Page index must be 0 or greater, and size must be greater than 0.");
 				}
@@ -817,13 +716,6 @@ public class ProductController {
 
 				// Reset pagination when filters change (searchTerm/category/searchBy)
 				try {
-					/*
-					* String prevSearchTerm = (String) session.getAttribute("prevSearchTerm");
-					* 
-					* @SuppressWarnings("unchecked") List<Integer> prevCategory = (List<Integer>)
-					* session.getAttribute("prevCategory"); String prevSearchBy = (String)
-					* session.getAttribute("prevSearchBy");
-					*/
 					boolean filtersChanged = false;
 					if (!Objects.equals(searchTerm, session.getAttribute("prevSearchTerm"))) {
 						filtersChanged = true;
@@ -836,7 +728,6 @@ public class ProductController {
 					}
 
 					if (filtersChanged && page == 0) {
-						// Only reset page if it's first page (optional)
 						page = 0;
 					}
 
@@ -868,10 +759,8 @@ else if ("unverifiedFirst".equalsIgnoreCase(sortBy)) {
 } 
 				PageRequest pageable = PageRequest.of(page, size, sort);
 
-				System.out.println("cateogries "+categories);
 				// Execute search based on presence of category filter and searchBy
 				Page<Product> products;
-				System.out.println("Pageable: " + pageable);
 
 				boolean dbVerifiedOnly = verifiedOnly && !unverifiedOnly;
 				if (categories == null) {
@@ -898,8 +787,6 @@ else if ("unverifiedFirst".equalsIgnoreCase(sortBy)) {
 				Estimate e = new Estimate();
 				
 				int verificationFreqcy = getVerificationFrequency(); // get from DB
-			//    LocalDateTime now = LocalDateTime.now();
-
 				List<Product> processedProducts = new ArrayList<>();
 
 for (Product product : products.getContent()) {
@@ -1070,163 +957,100 @@ return ResponseEntity.ok(new ProductPage(processedProducts, totalCount));
 	}
 
 	@PutMapping(value = "/updateProduct/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-	public ResponseEntity<Product> updateProduct(@PathVariable("id") String id,
-			@RequestParam(value = "productName", required = false) String productName,
-			@RequestParam(value = "productOrderid", required = false) String productOrderid,
-			@RequestParam(value = "productPrice", required = false) BigDecimal productPrice,
-			@RequestParam(value = "productRemarks", required = false) String productRemarks,
-			@RequestParam(value = "productImageUrl", required = false) String productImageUrl,
-			@RequestParam(value = "categoryId", required = false) Integer categoryId,
-			@RequestParam(value = "subCategoryId", required = false) Long subCategoryId,
-			@RequestParam(value = "productNet", required = false) BigDecimal productNet,
-			@RequestParam(value = "pcs", required = false) Integer pcs,
-			@RequestParam(value = "diaWeight", required = false) BigDecimal diaWeight,
-			@RequestParam(value = "diaRate", required = false) BigDecimal diaRate,
-			@RequestParam(value = "diaOs", required = false) BigDecimal diaOs,
-			@RequestParam(value = "diaOsRate", required = false) BigDecimal diaOsRate,
-			@RequestParam(value = "gross", required = false) BigDecimal gross,
-
-			// Category-specific fields
-			@RequestParam(value = "vilandiCt", required = false) BigDecimal vilandiCt,
-			@RequestParam(value = "diamondsCt", required = false) BigDecimal diamondsCt,
-			@RequestParam(value = "diamondsCtRate", required = false) BigDecimal diamondsCtRate,
-			@RequestParam(value = "beadsCt", required = false) BigDecimal beadsCt,
-			@RequestParam(value = "pearlsGm", required = false) BigDecimal pearlsGm,
-			@RequestParam(value = "vilandiRate", required = false) BigDecimal vilandiRate,
-			@RequestParam(value = "beadsRate", required = false) BigDecimal beadsRate,
-			@RequestParam(value = "openPearlsRate", required = false) BigDecimal openPearlsRate,
-			@RequestParam(value = "otherStonesCt", required = false) BigDecimal otherStonesCt,
-			@RequestParam(value = "otherOsRate", required = false) BigDecimal otherOsRate,
-			@RequestParam(value = "others", required = false) String others,
-			@RequestParam(value = "designNo", required = false) String designNo,
-			@RequestParam(value = "pcsEarrings", required = false) Integer pcsEarrings,
-			@RequestParam(value = "diamondsCtEarrings", required = false) BigDecimal diamondsCtEarrings,
-			@RequestParam(value = "diamondsCtEarringsRate", required = false) BigDecimal diamondsCtEarringsRate,
-			@RequestParam(value = "diaEOs", required = false) BigDecimal diaEOs,
-			@RequestParam(value = "diaEOsRate", required = false) BigDecimal diaEOsRate,
-			@RequestParam(value = "vilandi", required = false) BigDecimal vilandi,
-			@RequestParam(value = "vRate", required = false) BigDecimal vRate,
-			@RequestParam(value = "stones", required = false) BigDecimal stones,
-			@RequestParam(value = "vsRate", required = false) BigDecimal vsRate,
-			@RequestParam(value = "beadsCtVilandi", required = false) BigDecimal beadsCtVilandi,
-			@RequestParam(value = "vbRate", required = false) BigDecimal vbRate,
-			@RequestParam(value = "pearlsGmVilandi", required = false) BigDecimal pearlsGmVilandi,
-			@RequestParam(value = "vpRate", required = false) BigDecimal vpRate,
-			@RequestParam(value = "ssPearlCt", required = false) BigDecimal ssPearlCt,
-			@RequestParam(value = "vssRate", required = false) BigDecimal vssRate,
-			@RequestParam(value = "vrealStone", required = false) BigDecimal vrealStone,
-			@RequestParam(value = "vfitting", required = false) BigDecimal vfitting,
-			@RequestParam(value = "vmoz", required = false) BigDecimal vmoz,
-			@RequestParam(value = "vmRate", required = false) BigDecimal vmRate,
-			@RequestParam(value = "stonesJadtar", required = false) BigDecimal stonesJadtar,
-			@RequestParam(value = "jsRate", required = false) BigDecimal jsRate,
-			@RequestParam(value = "beadsCtJadtar", required = false) BigDecimal beadsCtJadtar,
-			@RequestParam(value = "jbRate", required = false) BigDecimal jbRate,
-			@RequestParam(value = "pearlsGmJadtar", required = false) BigDecimal pearlsGmJadtar,
-			@RequestParam(value = "jpRate", required = false) BigDecimal jpRate,
-			@RequestParam(value = "ssPearlCtJadtar", required = false) BigDecimal ssPearlCtJadtar,
-			@RequestParam(value = "jssRate", required = false) BigDecimal jssRate,
-			@RequestParam(value = "realStoneJadtar", required = false) BigDecimal realStoneJadtar,
-			@RequestParam(value = "jfitting", required = false) BigDecimal jfitting,
-			@RequestParam(value = "jmoz", required = false) BigDecimal jmoz,
-			@RequestParam(value = "jmRate", required = false) BigDecimal jmRate,
-			@RequestParam(value = "image", required = false) MultipartFile imageFile,
-			@RequestParam(value = "karat", required = false) BigDecimal karat,
-			@RequestParam(value = "labour", required = false) BigDecimal labour,
-			@RequestParam(value = "labourAll", required = false) BigDecimal labourAll,
-			@RequestParam(value = "ssosPearlCt", required = false) BigDecimal ssosPearlCt,
-			@RequestParam(value = "ssosPearllbl", required = false) BigDecimal ssosPearllbl,
-			@RequestParam(value = "customFields", required = false) String customFieldsJson,
-			 @RequestParam(value = "labourPer", required = false) BigDecimal labourPer,
-			@RequestParam(value = "jadvilandi", required = false) BigDecimal jadvilandi,
-			@RequestParam(value = "jadvilandiRate", required = false) BigDecimal jadvilandiRate
-			) {
-
+	public ResponseEntity<Product> updateProduct(@PathVariable("id") String id, @ModelAttribute ProductUpdateForm form) {
 		if (id == null || id.isEmpty()) {
 			throw new ProductUpdateException("Product ID cannot be null or empty.");
 		}
 
-		if (categoryId == null) {
+		if (form.getCategoryId() == null) {
 			throw new ProductUpdateException("Category ID is required.");
 		}
-		Product updatedProduct = new Product();
-		updatedProduct.setItem(productName);
-		updatedProduct.setPrice(productPrice);
-		updatedProduct.setRemarks(productRemarks);
-		updatedProduct.setImageUrl(productImageUrl);
-		updatedProduct.setCategoryId(categoryId);
-		updatedProduct.setSubCategoryId(subCategoryId);
-		updatedProduct.setNet(productNet);
-		updatedProduct.setGross(gross);
-		updatedProduct.setKarat(karat);
-		updatedProduct.setDesignNo(designNo);
-		updatedProduct.setLabour(labour);
-		updatedProduct.setLabourAll(labourAll);
-		updatedProduct.setLabourP(labourPer);
-		 if(customFieldsJson != null) {
-			 updatedProduct.setCustomFields(customFieldsJson);
-		    }
-		// String design ="";
-		if (categoryId == 1) {
-			updatedProduct.setPcs(pcs);
-			updatedProduct.setDiamondsCt(diaWeight);
-			updatedProduct.setDiaRt(diaRate);
-			updatedProduct.setOtherStonesCt(diaOs);
-			updatedProduct.setOtherStonesRt(diaOsRate);
-		}
-		if (categoryId == 2) {
-			updatedProduct.setVilandiCt(vilandiCt);
-			updatedProduct.setvRate(vilandiRate);
-			updatedProduct.setDiamondsCt(diamondsCt);
-			updatedProduct.setDiaRt(diamondsCtRate);
-			updatedProduct.setOtherStonesCt(otherStonesCt);
-			updatedProduct.setOtherStonesRt(otherOsRate);
-			updatedProduct.setBeadsCt(beadsCt);
-			updatedProduct.setBdRate(beadsRate);
-			updatedProduct.setPearlsGm(pearlsGm);
-			updatedProduct.setPrlRate(openPearlsRate);
-			updatedProduct.setOthers(others);
-			updatedProduct.setSsPearlCt(ssosPearllbl);
-			updatedProduct.setSsRate(ssosPearlCt);
-		}
-		if (categoryId == 4) {
-			updatedProduct.setVilandiCt(vilandi);
-			updatedProduct.setvRate(vRate);
-			updatedProduct.setStones(stones);
-			updatedProduct.setStRate(vsRate);
-			updatedProduct.setBeadsCt(beadsCtVilandi);
-			updatedProduct.setBdRate(vbRate);
-			updatedProduct.setPearlsGm(pearlsGmVilandi);
-			updatedProduct.setPrlRate(vpRate);
-			updatedProduct.setSsPearlCt(ssPearlCt);
-			updatedProduct.setSsRate(vssRate);
-			updatedProduct.setRealStone(vrealStone);
-			updatedProduct.setFitting(vfitting);
-			updatedProduct.setMozonite(vmoz);
-			updatedProduct.setmRate(vmRate);
-		}
-		if (categoryId == 5) {
-			updatedProduct.setStones(stonesJadtar);
-			updatedProduct.setStRate(jsRate);
-			updatedProduct.setBeadsCt(beadsCtJadtar);
-			updatedProduct.setBdRate(jbRate);
-			updatedProduct.setPearlsGm(pearlsGmJadtar);
-			updatedProduct.setPrlRate(jpRate);
-			updatedProduct.setSsPearlCt(ssPearlCtJadtar);
-			updatedProduct.setSsRate(jssRate);
-			updatedProduct.setRealStone(realStoneJadtar);
-			updatedProduct.setFitting(jfitting);
-			updatedProduct.setMozonite(jmoz);
-			updatedProduct.setmRate(jmRate);
-			updatedProduct.setVilandiCt(jadvilandi);
-			updatedProduct.setvRate(jadvilandiRate);
-		}
-		Product updated = productService.updateProduct(id, updatedProduct, imageFile,productOrderid);
+
+		Product updatedProduct = mapUpdateFormToProduct(form);
+		Product updated = productService.updateProduct(id, updatedProduct, form.getImage(), form.getProductOrderid());
 
 		if (updated == null) {
 			throw new ProductUpdateException("Failed to update product. Product not found with ID: " + id);
 		}
 		return ResponseEntity.ok(updated);
+	}
+
+	private Product mapUpdateFormToProduct(ProductUpdateForm form) {
+		Product updatedProduct = new Product();
+		updatedProduct.setItem(form.getProductName());
+		updatedProduct.setPrice(form.getProductPrice());
+		updatedProduct.setRemarks(form.getProductRemarks());
+		updatedProduct.setImageUrl(form.getProductImageUrl());
+		updatedProduct.setCategoryId(form.getCategoryId());
+		updatedProduct.setSubCategoryId(form.getSubCategoryId());
+		updatedProduct.setNet(form.getProductNet());
+		updatedProduct.setGross(form.getGross());
+		updatedProduct.setKarat(form.getKarat());
+		updatedProduct.setDesignNo(form.getDesignNo());
+		updatedProduct.setLabour(form.getLabour());
+		updatedProduct.setLabourAll(form.getLabourAll());
+		updatedProduct.setLabourP(form.getLabourPer());
+		if (form.getCustomFields() != null) {
+			updatedProduct.setCustomFields(form.getCustomFields());
+		}
+
+		mapUpdateCategorySpecificFields(updatedProduct, form);
+		return updatedProduct;
+	}
+
+	private void mapUpdateCategorySpecificFields(Product updatedProduct, ProductUpdateForm form) {
+		Integer categoryId = form.getCategoryId();
+		if (categoryId == 1) {
+			updatedProduct.setPcs(form.getPcs());
+			updatedProduct.setDiamondsCt(form.getDiaWeight());
+			updatedProduct.setDiaRt(form.getDiaRate());
+			updatedProduct.setOtherStonesCt(form.getDiaOs());
+			updatedProduct.setOtherStonesRt(form.getDiaOsRate());
+		} else if (categoryId == 2) {
+			updatedProduct.setVilandiCt(form.getVilandiCt());
+			updatedProduct.setvRate(form.getVilandiRate());
+			updatedProduct.setDiamondsCt(form.getDiamondsCt());
+			updatedProduct.setDiaRt(form.getDiamondsCtRate());
+			updatedProduct.setOtherStonesCt(form.getOtherStonesCt());
+			updatedProduct.setOtherStonesRt(form.getOtherOsRate());
+			updatedProduct.setBeadsCt(form.getBeadsCt());
+			updatedProduct.setBdRate(form.getBeadsRate());
+			updatedProduct.setPearlsGm(form.getPearlsGm());
+			updatedProduct.setPrlRate(form.getOpenPearlsRate());
+			updatedProduct.setOthers(form.getOthers());
+			updatedProduct.setSsPearlCt(form.getSsosPearllbl());
+			updatedProduct.setSsRate(form.getSsosPearlCt());
+		} else if (categoryId == 4) {
+			updatedProduct.setVilandiCt(form.getVilandi());
+			updatedProduct.setvRate(form.getvRate());
+			updatedProduct.setStones(form.getStones());
+			updatedProduct.setStRate(form.getVsRate());
+			updatedProduct.setBeadsCt(form.getBeadsCtVilandi());
+			updatedProduct.setBdRate(form.getVbRate());
+			updatedProduct.setPearlsGm(form.getPearlsGmVilandi());
+			updatedProduct.setPrlRate(form.getVpRate());
+			updatedProduct.setSsPearlCt(form.getSsPearlCt());
+			updatedProduct.setSsRate(form.getVssRate());
+			updatedProduct.setRealStone(form.getVrealStone());
+			updatedProduct.setFitting(form.getVfitting());
+			updatedProduct.setMozonite(form.getVmoz());
+			updatedProduct.setmRate(form.getVmRate());
+		} else if (categoryId == 5) {
+			updatedProduct.setStones(form.getStonesJadtar());
+			updatedProduct.setStRate(form.getJsRate());
+			updatedProduct.setBeadsCt(form.getBeadsCtJadtar());
+			updatedProduct.setBdRate(form.getJbRate());
+			updatedProduct.setPearlsGm(form.getPearlsGmJadtar());
+			updatedProduct.setPrlRate(form.getJpRate());
+			updatedProduct.setSsPearlCt(form.getSsPearlCtJadtar());
+			updatedProduct.setSsRate(form.getJssRate());
+			updatedProduct.setRealStone(form.getRealStoneJadtar());
+			updatedProduct.setFitting(form.getJfitting());
+			updatedProduct.setMozonite(form.getJmoz());
+			updatedProduct.setmRate(form.getJmRate());
+			updatedProduct.setVilandiCt(form.getJadvilandi());
+			updatedProduct.setvRate(form.getJadvilandiRate());
+		}
 	}
 
 	@GetMapping("/getEstimate/{productId}")
@@ -1238,9 +1062,6 @@ return ResponseEntity.ok(new ProductPage(processedProducts, totalCount));
 		rateWrapper.resetRates();
 		for (Rate rate : rates) {
 			switch (rate.getCommodity().toLowerCase()) {
-			/*
-			 * case "gold": rateWrapper.goldPrice = rate.getPrice(); break;
-			 */
 			case "diamond":
 				rateWrapper.diamondPrice = rate.getPrice();
 				break;
@@ -1253,10 +1074,9 @@ return ResponseEntity.ok(new ProductPage(processedProducts, totalCount));
 			}
 		}
 		Estimate e = new Estimate();
-		List<BigDecimal> prices= calculateProductPrice(product, rateWrapper, e, rates);
+		List<BigDecimal> prices = calculateProductPrice(product, rateWrapper, e, rates);
 		product.setPrice(prices.get(0));
 		product.setPriceWithFields(prices.get(1));
-	//	System.out.println("pricec with additional fields "+product.getPriceWithFields());
 		Map<String, Object> response = new HashMap<>();
 		response.put("object1", product);
 		response.put("object2", e);
@@ -1396,15 +1216,14 @@ return ResponseEntity.ok(new ProductPage(processedProducts, totalCount));
 	}
 
 
-	 @PutMapping("/verify/{designNo:.+}")
-	    public ResponseEntity<Void> setVerification(
-	            @PathVariable("designNo") String designNo,
-	            @RequestBody VerificationUpdate body) {
-		 System.out.println("came here");
-	        int status = body.verificationStatus() != null ? body.verificationStatus() : 1;
-	        productService.updateVerificationByDesignNo(designNo, status);
-	        return ResponseEntity.noContent().build();
-	    }
+	@PutMapping("/verify/{designNo:.+}")
+	public ResponseEntity<Void> setVerification(
+			@PathVariable("designNo") String designNo,
+			@RequestBody VerificationUpdate body) {
+		int status = body.verificationStatus() != null ? body.verificationStatus() : 1;
+		productService.updateVerificationByDesignNo(designNo, status);
+		return ResponseEntity.noContent().build();
+	}
 
 	@PostMapping("/uploadFile")
 	public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file,
@@ -1485,11 +1304,7 @@ return ResponseEntity.ok(new ProductPage(processedProducts, totalCount));
 	        // 👇 NEW: font size from UI
 	        @RequestParam(value = "fontSize", defaultValue = "5.5") float fontSize
 	) throws IOException {
-
-
-
-System.out.println("we are inside generateFoldedTagsPdf");
-			  List<Product> allProducts = productService.getAllProductsByCategory(categoryId, subCategoryId); // <-- Pass subCategoryId
+		List<Product> allProducts = productService.getAllProductsByCategory(categoryId, subCategoryId);
 
 			    if (allProducts.isEmpty()) {
 			        throw new CategoryNotFoundException("No products found for category ID: " + categoryId);
@@ -1800,19 +1615,14 @@ private void drawSingleTag(
 
 
 		private static String fmtRate(BigDecimal v) {
-		    if (v == null) return "";
-		    return v.stripTrailingZeros().toPlainString();
+			if (v == null) return "";
+			return v.stripTrailingZeros().toPlainString();
 		}
 
 		private static final DecimalFormat DF = new DecimalFormat("#.##");
 
 		private String fmtBRate(BigDecimal val) {
-		    return DF.format(val);
-		}
-		
-
-		private String fmtDRate(double val) {
-		    return DF.format(val);
+			return DF.format(val);
 		}
 		 
 		 private static byte[] generateQrPngBytes(String text) {

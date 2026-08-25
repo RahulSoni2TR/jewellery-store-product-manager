@@ -37,7 +37,7 @@ function VerifyProducts({ onSwitchPage, onOpenModal }) {
     try {
       const [freqRes, prodRes] = await Promise.all([
         fetch(`${API_BASE}/frequency`, { credentials: 'include' }),
-        fetch(`${API_BASE}/product/load?page=0&size=1000&category=${filters.subCategory || filters.category}&searchTerm=${filters.searchTerm}`, { credentials: 'include' })
+        fetch(`${API_BASE}/product/load?page=0&size=1000&category=${filters.subCategory || filters.category}&searchTerm=${filters.searchTerm}&searchBy=all`, { credentials: 'include' })
       ]);
 
       if (freqRes.ok) {
@@ -55,9 +55,14 @@ function VerifyProducts({ onSwitchPage, onOpenModal }) {
         
         setVerified(v);
         setUnverified(uv);
+      } else {
+        setVerified([]);
+        setUnverified([]);
       }
     } catch (err) {
       console.error("Load failed", err);
+      setVerified([]);
+      setUnverified([]);
     }
   }, [filters]);
 
@@ -77,9 +82,12 @@ function VerifyProducts({ onSwitchPage, onOpenModal }) {
         onOpenModal('Product verified successfully');
         setSelectedProduct(null);
         fetchData();
+      } else {
+        const errText = await res.text().catch(() => '');
+        onOpenModal(`Verification failed: Status ${res.status} - ${errText}`);
       }
     } catch (err) {
-      onOpenModal('Verification failed');
+      onOpenModal(`Verification failed: ${err.message}`);
     }
   };
 
@@ -145,7 +153,7 @@ function VerifyProducts({ onSwitchPage, onOpenModal }) {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
           <label style={{ fontSize: '0.8rem', color: '#000', fontWeight: 'bold' }}>Freq (Days):</label>
-          <input type="number" value={frequency} onChange={e => setFrequency(e.target.value)} style={{ width: '60px', padding: '5px' }} />
+          <input pattern="\d*" inputmode="decimal" type="text" value={frequency} onChange={e => setFrequency(e.target.value)} style={{ width: '60px', padding: '5px' }} />
           <button className="action-button" onClick={handleUpdateFrequency} style={{ padding: '5px 12px' }}>Set</button>
         </div>
 

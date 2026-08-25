@@ -111,30 +111,32 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         
         List<Product> findByDesignNoIn(List<String> designNos);
         
+        @Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.designNo IS NOT NULL AND p.designNo <> :empty")
         Page<Product>
         findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndDesignNoIsNotNullAndDesignNoNot(
-            String item,
-            String designNo,
-            String empty,
+            @Param("item") String item,
+            @Param("designNo") String designNo,
+            @Param("empty") String empty,
             Pageable pageable
         );
         
+        @Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.categoryId IN :categoryIds AND p.designNo IS NOT NULL AND p.designNo <> :empty")
         Page<Product>
         findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndCategoryIdInAndDesignNoIsNotNullAndDesignNoNot(
-            String item,
-            String designNo,
-            List<Integer> categoryIds,
-            String empty,
+            @Param("item") String item,
+            @Param("designNo") String designNo,
+            @Param("categoryIds") List<Integer> categoryIds,
+            @Param("empty") String empty,
             Pageable pageable
         );
-
-        
+ 
+        @Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.subCategoryId IN :subCategoryIds AND p.designNo IS NOT NULL AND p.designNo <> :empty")
         Page<Product>
         findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndSubCategoryIdInAndDesignNoIsNotNullAndDesignNoNot(
-            String item,
-            String designNo,
-            List<Long> subCategoryIds,
-            String empty,
+            @Param("item") String item,
+            @Param("designNo") String designNo,
+            @Param("subCategoryIds") List<Long> subCategoryIds,
+            @Param("empty") String empty,
             Pageable pageable
         );
 
@@ -187,12 +189,13 @@ Page<Product> findByOrders_OrderIdContainingIgnoreCaseAndVerificationStatusAndDe
         String orderId, int verificationStatus, String empty, Pageable pageable);
 
 // ALL
+@Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.verificationStatus = :verificationStatus AND p.designNo IS NOT NULL AND p.designNo <> :empty")
 Page<Product>
 findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndVerificationStatusAndDesignNoIsNotNullAndDesignNoNot(
-        String item,
-        String designNo,
-        int verificationStatus,
-        String empty,
+        @Param("item") String item,
+        @Param("designNo") String designNo,
+        @Param("verificationStatus") int verificationStatus,
+        @Param("empty") String empty,
         Pageable pageable
 );
 
@@ -205,13 +208,14 @@ Page<Product> findByDesignNoContainingIgnoreCaseAndCategoryIdInAndVerificationSt
 Page<Product> findByOrders_OrderIdContainingIgnoreCaseAndCategoryIdInAndVerificationStatusAndDesignNoIsNotNullAndDesignNoNot(
         String orderId, List<Integer> categoryIds, int verificationStatus, String empty, Pageable pageable);
 
+@Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.categoryId IN :categoryIds AND p.verificationStatus = :verificationStatus AND p.designNo IS NOT NULL AND p.designNo <> :empty")
 Page<Product>
 findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndCategoryIdInAndVerificationStatusAndDesignNoIsNotNullAndDesignNoNot(
-        String item,
-        String designNo,
-        List<Integer> categoryIds,
-        int verificationStatus,
-        String empty,
+        @Param("item") String item,
+        @Param("designNo") String designNo,
+        @Param("categoryIds") List<Integer> categoryIds,
+        @Param("verificationStatus") int verificationStatus,
+        @Param("empty") String empty,
         Pageable pageable
 );
 
@@ -224,13 +228,14 @@ Page<Product> findBySubCategoryIdAndDesignNoContainingIgnoreCaseAndVerificationS
 Page<Product> findByOrders_OrderIdContainingIgnoreCaseAndSubCategoryIdInAndVerificationStatusAndDesignNoIsNotNullAndDesignNoNot(
         String orderId, List<Long> subCategoryIds, int verificationStatus, String empty, Pageable pageable);
 
+@Query("SELECT p FROM Product p WHERE (LOWER(p.item) LIKE LOWER(CONCAT('%', :item, '%')) OR LOWER(p.designNo) LIKE LOWER(CONCAT('%', :designNo, '%'))) AND p.subCategoryId IN :subCategoryIds AND p.verificationStatus = :verificationStatus AND p.designNo IS NOT NULL AND p.designNo <> :empty")
 Page<Product>
 findByItemContainingIgnoreCaseOrDesignNoContainingIgnoreCaseAndSubCategoryIdInAndVerificationStatusAndDesignNoIsNotNullAndDesignNoNot(
-        String item,
-        String designNo,
-        List<Long> subCategoryIds,
-        int verificationStatus,
-        String empty,
+        @Param("item") String item,
+        @Param("designNo") String designNo,
+        @Param("subCategoryIds") List<Long> subCategoryIds,
+        @Param("verificationStatus") int verificationStatus,
+        @Param("empty") String empty,
         Pageable pageable
 );
 Page<Product> findByDesignNoAndVerificationStatus(

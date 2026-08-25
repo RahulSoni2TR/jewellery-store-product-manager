@@ -87,7 +87,8 @@ const reconstructEstimateFromProduct = (product, parsedEstimate) => {
       : (subtotalExclGst - nonGoldExclLabour);
     goldAmt = Math.max(0, baseAmount / (1 + labourP / 100));
     labourAmt = goldAmt * labourP / 100;
-    labourDesc = `Labour (${product.labourP}%)`;
+    labourDesc = 'Labour';
+    labourRate = `${product.labourP}%`;
   } else {
     const nonGoldTotal = nonGoldExclLabour + labourAmt;
     goldAmt = isGstInclusive 
@@ -200,7 +201,10 @@ function EstimateSnapshot({ onSwitchPage }) {
     if (qty <= 0) return '';
     return `${qty.toFixed(3)}${getUnit(line.description || '')}`;
   };
-  const formatRate = (value) => Number(value || 0) > 0 ? Number(value).toFixed(2) : '';
+  const formatRate = (value) => {
+    if (typeof value === 'string' && value.endsWith('%')) return value;
+    return Number(value || 0) > 0 ? Number(value).toFixed(2) : '';
+  };
 
   const handleDownloadPdf = () => {
     if (!estimate) return;

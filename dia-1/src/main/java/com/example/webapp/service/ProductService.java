@@ -500,14 +500,13 @@ System.out.println(fileName);
 @Transactional
 public String updatePrices(Map<String, BigDecimal> prices) {
 
-    // ✅ Karat percentage mapping
-    Map<String, BigDecimal> KARAT_PERCENT = Map.of(
-        "24.00", new BigDecimal("1.00"),
-        "22.00", new BigDecimal("0.9167"),
-        "18.00", new BigDecimal("0.76"),
-        "14.00", new BigDecimal("0.60"),
-        "10.00", new BigDecimal("0.40")
-    );
+    // ✅ Karat percentage mapping (loaded dynamically from database with defaults)
+    Map<String, BigDecimal> karatPercent = new HashMap<>();
+    karatPercent.put("24.00", new BigDecimal("1.00"));
+    karatPercent.put("22.00", getKaratPercentFromDb("22.00_percent", "0.9167"));
+    karatPercent.put("18.00", getKaratPercentFromDb("18.00_percent", "0.76"));
+    karatPercent.put("14.00", getKaratPercentFromDb("14.00_percent", "0.60"));
+    karatPercent.put("10.00", getKaratPercentFromDb("10.00_percent", "0.40"));
 
     // ✅ Track user-provided fields (for audit)
     Set<String> userProvided = new HashSet<>(prices.keySet());
@@ -517,7 +516,7 @@ public String updatePrices(Map<String, BigDecimal> prices) {
 
     if (base24 != null && base24.compareTo(BigDecimal.ZERO) > 0) {
 
-        for (Map.Entry<String, BigDecimal> entry : KARAT_PERCENT.entrySet()) {
+        for (Map.Entry<String, BigDecimal> entry : karatPercent.entrySet()) {
 
             String karat = entry.getKey();
 
@@ -573,6 +572,12 @@ public String updatePrices(Map<String, BigDecimal> prices) {
     });
 
     return "Prices updated successfully";
+}
+
+private BigDecimal getKaratPercentFromDb(String commodity, String defaultValue) {
+    return rateRepository.findByCommodity(commodity)
+            .map(Rate::getPrice)
+            .orElse(new BigDecimal(defaultValue));
 }
 
 	public List<Rate> findAll() {

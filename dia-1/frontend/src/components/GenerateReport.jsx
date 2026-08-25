@@ -611,11 +611,11 @@ function GenerateReport({ onSwitchPage }) {
                 <>
                   <label>
                     Tag Position (1-40)
-                    <input type="number" min="1" max="40" value={foldStartSlot} onChange={(e) => setFoldStartSlot(e.target.value)} />
+                    <input pattern="\d*" inputmode="decimal" type="text" min="1" max="40" value={foldStartSlot} onChange={(e) => setFoldStartSlot(e.target.value)} />
                   </label>
                   <label>
                     Total Products to Print
-                    <input type="number" min="1" placeholder="All" value={foldProductCount} onChange={(e) => setFoldProductCount(e.target.value)} />
+                    <input pattern="\d*" inputmode="decimal" type="text" min="1" placeholder="All" value={foldProductCount} onChange={(e) => setFoldProductCount(e.target.value)} />
                   </label>
                   <label>
                     Font Size

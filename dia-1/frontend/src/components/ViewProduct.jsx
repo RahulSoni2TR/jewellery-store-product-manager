@@ -42,7 +42,7 @@ function ViewProduct({ onSwitchPage, onOpenModal }) {
     searchBy: sessionStorage.getItem('lastSearchBy') || 'name',
     verifiedOnly: sessionStorage.getItem('lastVerifiedOnly') === 'true',
     unverifiedOnly: sessionStorage.getItem('lastUnverifiedOnly') === 'true',
-    priceWithFields: true
+    priceWithFields: sessionStorage.getItem('lastPriceWithFields') !== 'false'
   }));
 
   const fetchProducts = useCallback(async (reset = false) => {
@@ -166,7 +166,15 @@ function ViewProduct({ onSwitchPage, onOpenModal }) {
         </button>
 
         <label className="checkbox-item" style={{color: '#000'}}>
-          <input type="checkbox" checked={filters.priceWithFields} onChange={e => setFilters({...filters, priceWithFields: e.target.checked})} />
+          <input 
+            type="checkbox" 
+            checked={filters.priceWithFields} 
+            onChange={e => {
+              const checked = e.target.checked;
+              setFilters(prev => ({ ...prev, priceWithFields: checked }));
+              sessionStorage.setItem('lastPriceWithFields', String(checked));
+            }} 
+          />
           Incl. Addons
         </label>
         <label className="checkbox-item" style={{color: '#000'}}>
@@ -251,8 +259,8 @@ function ViewProduct({ onSwitchPage, onOpenModal }) {
 
         <main className="view-main">
           <div className="view-controls">
-            <button className={!isListView ? 'active' : ''} onClick={() => setIsListView(false)}>🔳 Grid</button>
-            <button className={isListView ? 'active' : ''} onClick={() => setIsListView(true)}>📋 List</button>
+            <button className={!isListView ? 'active' : ''} onClick={() => { setIsListView(false); sessionStorage.setItem('lastView', 'grid'); }}>🔳 Grid</button>
+            <button className={isListView ? 'active' : ''} onClick={() => { setIsListView(true); sessionStorage.setItem('lastView', 'list'); }}>📋 List</button>
           </div>
 
           <div className={isListView ? 'product-list-container' : 'product-grid-container'}>
@@ -267,7 +275,11 @@ function ViewProduct({ onSwitchPage, onOpenModal }) {
                   <div className="card-actions">
                     <button onClick={() => { sessionStorage.setItem('productId', p.productId); sessionStorage.setItem('isDesignNo', 'false'); onSwitchPage('load-product'); }}>View👁️</button>
                     <button onClick={() => { sessionStorage.setItem('productId', p.productId); sessionStorage.setItem('isDesignNo', 'false'); onSwitchPage('get-estimate'); }}>Estimate📊</button>
-                    <button onClick={() => { sessionStorage.setItem('modifyDesignNo', p.designNo); onSwitchPage('modify-product'); }}>Modify📝</button>
+                    <button onClick={() => { 
+                      sessionStorage.setItem('modifyDesignNo', p.designNo); 
+                      sessionStorage.setItem('modifyReferrer', 'view-product');
+                      onSwitchPage('modify-product'); 
+                    }}>Modify📝</button>
                     <button className="del" onClick={() => setDeleteId(p.designNo)}>Delete🗑️</button>
                   </div>
                 </div>

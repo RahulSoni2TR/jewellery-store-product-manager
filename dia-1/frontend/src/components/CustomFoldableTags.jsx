@@ -370,7 +370,7 @@ function CustomFoldableTags({ onSwitchPage }) {
               onClick={() => onSwitchPage('generate-report')}
               aria-label="Back to Generate Report"
             >
-              Back
+              <i className="fas fa-arrow-left"></i>
             </button>
 
             <div className="hero-copy">
@@ -475,7 +475,7 @@ function CustomFoldableTags({ onSwitchPage }) {
               <div className="field-stack full-span">
                 <label>Search</label>
                 <div className="commercial-search-input">
-                  <span className="search-hint">Search</span>
+                  <i className="fas fa-search search-icon"></i>
                   <input
                     type="text"
                     placeholder="Design no, product name, or register id"
@@ -498,8 +498,8 @@ function CustomFoldableTags({ onSwitchPage }) {
             <div className="toolbar-grid settings-grid">
               <div className="setting-item">
                 <span>Start Tag Position</span>
-                <input
-                  type="number"
+                <input pattern="\d*" inputmode="decimal"
+                  type="text"
                   min="1"
                   value={startSlot}
                   onChange={(e) => setStartSlot(e.target.value)}

@@ -28,7 +28,7 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
     } else if (Number(p.labourAll || 0) > 0) {
       labourRows.push({ id: 'labourAmt', desc: 'Labour Amount', qty: null, rate: null, amt: Number(e.labour || 0), unit: '', categoryIds: [1, 2, 3, 4, 5] });
     } else if (Number(p.labourP || 0) > 0) {
-      labourRows.push({ id: 'labourPer', desc: `Labour (${p.labourP}%)`, qty: null, rate: null, amt: Number(e.labour || 0), unit: '', categoryIds: [1, 2, 3, 4, 5] });
+      labourRows.push({ id: 'labourPer', desc: 'Labour', qty: null, rate: Number(p.labourP), amt: Number(e.labour || 0), unit: '', categoryIds: [1, 2, 3, 4, 5] });
     } else if (Number(e.labour || 0) > 0) {
       labourRows.push({ id: 'labour', desc: 'Labour', qty: Number(p.net || 0), rate: Number(p.labour || 0), amt: Number(e.labour || 0), unit: 'gm', categoryIds: [1, 2, 3, 4, 5] });
     }
@@ -100,7 +100,12 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
     row[field] = numericValue;
     if (field === 'amt') row.manual = true;
     
-    if (field === 'qty' || field === 'rate') {
+    if (row.id === 'labourPer' && field === 'rate') {
+      const rate = parseFloat(row.rate) || 0;
+      const goldRow = updatedRows.find(r => r.id === 'gold');
+      const goldAmt = goldRow ? parseFloat(goldRow.amt || 0) : 0;
+      row.amt = Math.round(goldAmt * rate / 100);
+    } else if (field === 'qty' || field === 'rate') {
       const qty = parseFloat(row.qty) || 0;
       const rate = parseFloat(row.rate) || 0;
       row.amt = Math.round(qty * rate);
@@ -108,6 +113,18 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
       row.amt = Math.round(Number(row.qty) * Number(row.rate));
     }
     updatedRows[index] = row;
+
+    // Propagate gold row changes to labourPer row if it's not manually customized
+    if (row.id === 'gold' && (field === 'qty' || field === 'rate' || field === 'amt')) {
+      const labourPerIndex = updatedRows.findIndex(r => r.id === 'labourPer');
+      if (labourPerIndex !== -1 && !updatedRows[labourPerIndex].manual) {
+        const lpRow = { ...updatedRows[labourPerIndex] };
+        const lpRate = parseFloat(lpRow.rate) || 0;
+        lpRow.amt = Math.round(row.amt * lpRate / 100);
+        updatedRows[labourPerIndex] = lpRow;
+      }
+    }
+
     setRows(updatedRows);
   };
 
@@ -152,7 +169,7 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
       lines: rows.filter(r => !r.isAddon || includeAddons).map(r => ({
         description: r.desc,
         qty: parseFloat(r.qty) || 0,
-        rate: parseFloat(r.rate) || 0,
+        rate: r.id === 'labourPer' ? `${r.rate}%` : (parseFloat(r.rate) || 0),
         amount: Math.round(r.amt) || 0
       })),
       totals: { noGst: Math.round(subtotal), gst: Math.round(gst), grandTotal: Math.round(total) },
@@ -181,7 +198,10 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
     const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
     const formatAmount = (value) => Number(value || 0).toLocaleString('en-IN');
     const formatQty = (value) => Number(value) > 0 ? Number(value).toFixed(3) : '';
-    const formatRate = (value) => Number(value) > 0 ? Number(value).toFixed(2) : '';
+    const formatRate = (value) => {
+      if (typeof value === 'string' && value.endsWith('%')) return value;
+      return Number(value) > 0 ? Number(value).toFixed(2) : '';
+    };
     const estimateDate = new Date().toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'short'
@@ -214,8 +234,7 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
             {
               width: '*',
               stack: [
-                { text: 'JEWELLERY STORE MANAGER', style: 'brand' },
-                { text: 'Fine Jewellery Estimate', style: 'brandSub' }
+                { text: 'Fine Jewellery Estimate', style: 'brand' }
               ]
             },
             {
@@ -259,17 +278,15 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
           style: 'tableExample',
           table: {
             headerRows: 1,
-            widths: [26, '*', 82, 82, 92],
+            widths: ['*', 92, 92, 102],
             body: [
               [
-                { text: '#', style: 'tableHeader', alignment: 'center' },
                 { text: 'Description', style: 'tableHeader' },
                 { text: 'Qty', style: 'tableHeader', alignment: 'right' },
                 { text: 'Rate', style: 'tableHeader', alignment: 'right' },
                 { text: 'Amount', style: 'tableHeader', alignment: 'right' }
               ],
               ...activeLines.map((line, index) => [
-                { text: String(index + 1), style: 'tableCell', alignment: 'center' },
                 { text: line.description, style: 'tableCell' },
                 { text: formatQty(line.qty), style: 'tableCell', alignment: 'right' },
                 { text: formatRate(line.rate), style: 'tableCell', alignment: 'right' },
@@ -348,13 +365,13 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
           margin: [0, 3, 0, 0]
         },
         metaLabel: {
-          fontSize: 8,
+          fontSize: Math.max(6, Number(fontSize) - 6),
           bold: true,
           color: '#12372f',
           fillColor: '#fbfaf4'
         },
         metaValue: {
-          fontSize: 8,
+          fontSize: Math.max(6, Number(fontSize) - 6),
           color: '#111827'
         },
         estimateTitle: {
@@ -386,23 +403,23 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
           margin: [0, 0, 0, 4]
         },
         summaryLabel: {
-          fontSize: 9,
+          fontSize: Math.max(7, Number(fontSize) - 5),
           color: '#374151',
           bold: true
         },
         summaryValue: {
-          fontSize: 9,
+          fontSize: Math.max(7, Number(fontSize) - 5),
           color: '#111827',
           bold: true,
           alignment: 'right'
         },
         grandLabel: {
-          fontSize: 11,
+          fontSize: Math.max(8, Number(fontSize) - 3),
           color: '#ffffff',
           bold: true
         },
         grandValue: {
-          fontSize: 11,
+          fontSize: Math.max(8, Number(fontSize) - 3),
           color: '#ffffff',
           bold: true,
           alignment: 'right'
@@ -456,7 +473,7 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
         <h1>Estimate for {product.item}</h1>
         <p>Design No: {product.orders?.orderId}/{product.designNo}</p>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div className="estimate-controls-row">
           <label className="checkbox-item" style={{ color: '#000' }}>
             <input type="checkbox" checked={includeAddons} onChange={e => setIncludeAddons(e.target.checked)} />
             Include Addons
@@ -471,79 +488,86 @@ function GetEstimate({ onSwitchPage, onOpenModal }) {
           </div>
         </div>
 
-        <table 
-          className="estimate-table" 
-          style={{ 
-            fontSize: `${fontSize}px`,
-            transition: 'font-size 0.2s ease'
-          }}
-        >
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th>Qty</th>
-              <th>Rate</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.filter(r => !r.isAddon || includeAddons).map((row) => {
-              const realIndex = rows.findIndex(r => r.id === row.id);
-              return (
-              <tr key={row.id}>
-                <td>
-                  {isEditMode && row.id.startsWith('custom-') ? (
-                    <input 
-                      type="text" 
-                      value={row.desc} 
-                      onChange={e => handleRowChange(realIndex, 'desc', e.target.value)} 
-                    />
-                  ) : (
-                    row.desc
-                  )}
-                </td>
-                <td>
-                  {isEditMode && row.qty !== null ? (
-                    <input type="number" value={row.qty} onChange={e => handleRowChange(realIndex, 'qty', e.target.value)} step="0.001" />
-                  ) : (
-                    row.qty !== null ? Number(row.qty).toFixed(3) : ''
-                  )}
-                </td>
-                <td>
-                  {isEditMode && row.rate !== null ? (
-                    <input type="number" value={row.rate} onChange={e => handleRowChange(realIndex, 'rate', e.target.value)} step="0.01" />
-                  ) : (
-                    row.rate !== null ? Number(row.rate).toFixed(2) : ''
-                  )}
-                </td>
-                <td>
-                  {isEditMode && row.id.startsWith('custom-') ? (
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <input type="number" value={row.amt} onChange={e => handleRowChange(realIndex, 'amt', e.target.value)} />
-                      <button className="remove-btn" onClick={() => setRows(rows.filter((_, i) => i !== realIndex))}>&times;</button>
-                    </div>
-                  ) : isEditMode ? (
-                    <input type="number" value={row.amt} onChange={e => handleRowChange(realIndex, 'amt', e.target.value)} />
-                  ) : (
-                    Math.round(row.amt || 0).toLocaleString('en-IN')
-                  )}
-                </td>
+        <div className="table-responsive">
+          <table 
+            className="estimate-table" 
+            style={{ 
+              fontSize: `${fontSize}px`,
+              transition: 'font-size 0.2s ease'
+            }}
+          >
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Amount</th>
               </tr>
-            );})}
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Subtotal</td>
-              <td style={{ fontWeight: 'bold' }}>₹{Math.round(subtotal).toLocaleString('en-IN')}</td>
-            </tr>
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>GST ({gstRate}%)</td>
-              <td style={{ fontWeight: 'bold' }}>₹{Math.round(gst).toLocaleString('en-IN')}</td>
-            </tr>
-            <tr>
-              <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem' }}>Grand Total</td>
-              <td style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>₹{Math.round(total).toLocaleString('en-IN')}</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.filter(r => !r.isAddon || includeAddons).map((row) => {
+                const realIndex = rows.findIndex(r => r.id === row.id);
+                return (
+                <tr key={row.id}>
+                  <td>
+                    {isEditMode && row.id.startsWith('custom-') ? (
+                      <input 
+                        type="text" 
+                        value={row.desc} 
+                        onChange={e => handleRowChange(realIndex, 'desc', e.target.value)} 
+                      />
+                    ) : (
+                      row.desc
+                    )}
+                  </td>
+                  <td>
+                    {isEditMode && row.qty !== null ? (
+                      <input pattern="\d*" inputmode="decimal" type="text" value={row.qty} onChange={e => handleRowChange(realIndex, 'qty', e.target.value)} step="0.001" />
+                    ) : (
+                      row.qty !== null ? Number(row.qty).toFixed(3) : ''
+                    )}
+                  </td>
+                  <td>
+                    {isEditMode && row.id === 'labourPer' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <input pattern="\d*" inputmode="decimal" type="text" value={row.rate} onChange={e => handleRowChange(realIndex, 'rate', e.target.value)} step="0.01" style={{ width: '60px' }} />
+                        <span style={{ color: '#000' }}>%</span>
+                      </div>
+                    ) : isEditMode && row.rate !== null ? (
+                      <input pattern="\d*" inputmode="decimal" type="text" value={row.rate} onChange={e => handleRowChange(realIndex, 'rate', e.target.value)} step="0.01" />
+                    ) : (
+                      row.rate !== null ? (row.id === 'labourPer' ? `${row.rate}%` : Number(row.rate).toFixed(2)) : ''
+                    )}
+                  </td>
+                  <td>
+                    {isEditMode && row.id.startsWith('custom-') ? (
+                      <div style={{ display: 'flex', gap: '5px' }}>
+                        <input pattern="\d*" inputmode="decimal" type="text" value={row.amt} onChange={e => handleRowChange(realIndex, 'amt', e.target.value)} />
+                        <button className="remove-btn" onClick={() => setRows(rows.filter((_, i) => i !== realIndex))}>&times;</button>
+                      </div>
+                    ) : isEditMode ? (
+                      <input pattern="\d*" inputmode="decimal" type="text" value={row.amt} onChange={e => handleRowChange(realIndex, 'amt', e.target.value)} />
+                    ) : (
+                      Math.round(row.amt || 0).toLocaleString('en-IN')
+                    )}
+                  </td>
+                </tr>
+              );})}
+              <tr>
+                <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Subtotal</td>
+                <td style={{ fontWeight: 'bold' }}>₹{Math.round(subtotal).toLocaleString('en-IN')}</td>
+              </tr>
+              <tr>
+                <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>GST ({gstRate}%)</td>
+                <td style={{ fontWeight: 'bold' }}>₹{Math.round(gst).toLocaleString('en-IN')}</td>
+              </tr>
+              <tr>
+                <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem' }}>Grand Total</td>
+                <td style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>₹{Math.round(total).toLocaleString('en-IN')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <div className="auth-form" style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
           <h3 style={{ marginTop: '0', marginBottom: '15px', textAlign: 'center' }}>PDF Export Settings</h3>

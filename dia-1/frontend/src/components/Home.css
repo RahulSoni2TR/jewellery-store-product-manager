@@ -898,10 +898,19 @@
 }
 
 /* Estimate Table Styles */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
 .estimate-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 20px;
+  min-width: 500px;
 }
 
 .estimate-table th, .estimate-table td {
@@ -919,6 +928,40 @@
 .estimate-table th:nth-child(3), .estimate-table td:nth-child(3),
 .estimate-table th:nth-child(4), .estimate-table td:nth-child(4) {
   text-align: right;
+}
+
+.estimate-table input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 6px 10px !important;
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  font-size: 0.95rem !important;
+  height: 36px !important;
+  margin-bottom: 0 !important;
+}
+
+.estimate-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 15px;
+}
+
+@media (max-width: 600px) {
+  .estimate-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .estimate-controls-row > div {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .estimate-table th, .estimate-table td {
+    padding: 8px 6px;
+  }
 }
 
 
@@ -991,4 +1034,73 @@
 
 .verify-product-card.verified {
   border-left: 4px solid #28a745;
+}
+
+/* Price Reminder Top Banner */
+.price-reminder-banner {
+  background: linear-gradient(135deg, #fff3cd, #ffeeba);
+  border-bottom: 2px solid #ffeeba;
+  color: #856404;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.banner-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.banner-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.banner-btn.primary {
+  background: #856404;
+  color: #fff;
+}
+
+.banner-btn.primary:hover {
+  background: #6b5003;
+  transform: translateY(-1px);
+}
+
+.banner-btn.secondary {
+  background: transparent;
+  color: #856404;
+  border: 1px solid #856404;
+}
+
+.banner-btn.secondary:hover {
+  background: rgba(133, 100, 4, 0.1);
+  transform: translateY(-1px);
 }

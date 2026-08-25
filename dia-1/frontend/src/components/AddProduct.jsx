@@ -129,7 +129,20 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
       const data = await response.json();
       if (response.ok && data.success) {
         onOpenModal('Product added successfully!');
-        onSwitchPage('home');
+        setFormData({
+          categoryId: '',
+          subCategoryId: '',
+          productName: '',
+          karatId: '',
+          stockQuantity: '',
+          availableOrderId: '',
+          customOrderId: '',
+          remarks: '',
+        });
+        setExtraFields([]);
+        setImageFile(null);
+        setSubCategories([]);
+        setAvailableOrderIds([]);
       } else {
         onOpenModal(data.message || 'Error adding product.');
       }
@@ -149,23 +162,23 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
           <label>Design No</label>
           <input type="text" name="designNoDR" required onChange={handleInputChange} />
           <label>Gross Weight</label>
-          <input type="number" name="diamondGross" step="0.001" required onChange={handleInputChange} />
+          <input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="diamondGross" step="0.001" required onChange={handleInputChange} />
           <label>Net Weight</label>
-          <input type="number" name="net" step="0.001" required onChange={handleInputChange} />
+          <input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="net" step="0.001" required onChange={handleInputChange} />
           <label>Pieces</label>
-          <input type="number" name="pcs" onChange={handleInputChange} />
+          <input pattern="\d*" inputmode="decimal" type="text" name="pcs" onChange={handleInputChange} />
           <div className="inline-fields">
-            <div><label>Diamonds (ct)</label><input type="number" name="diaWeight" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Diamond Rate</label><input type="number" name="diaRate" onChange={handleInputChange} /></div>
+            <div><label>Diamonds (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="diaWeight" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Diamond Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="diaRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Other Stones</label><input type="number" name="diaSt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Other Stones Rate</label><input type="number" name="diaStRate" onChange={handleInputChange} /></div>
+            <div><label>Other Stones</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="diaSt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Other Stones Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="diaStRate" onChange={handleInputChange} /></div>
           </div>
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="drLabour" disabled={formData.drLabourAll || formData.drLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="drLabourAll" disabled={formData.drLabour || formData.drLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="drLabourP" disabled={formData.drLabour || formData.drLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="drLabour" disabled={formData.drLabourAll || formData.drLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="drLabourAll" disabled={formData.drLabour || formData.drLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="drLabourP" disabled={formData.drLabour || formData.drLabourAll} onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -177,36 +190,36 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
         <div className="category-specific">
           <label>Design No</label>
           <input type="text" name="designNoOS" required onChange={handleInputChange} />
-          <label>Gross</label><input type="number" name="gross" step="0.001" required onChange={handleInputChange} />
-          <label>Net</label><input type="number" name="net" step="0.001" required onChange={handleInputChange} />
+          <label>Gross</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="gross" step="0.001" required onChange={handleInputChange} />
+          <label>Net</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="net" step="0.001" required onChange={handleInputChange} />
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="osLabour" disabled={formData.osLabourAll || formData.osLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="osLabourAll" disabled={formData.osLabour || formData.osLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="osLabourP" disabled={formData.osLabour || formData.osLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="osLabour" disabled={formData.osLabourAll || formData.osLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="osLabourAll" disabled={formData.osLabour || formData.osLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="osLabourP" disabled={formData.osLabour || formData.osLabourAll} onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Vilandi (ct)</label><input type="number" name="vilandiCt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Vilandi Rate</label><input type="number" name="vilandiRate" onChange={handleInputChange} /></div>
+            <div><label>Vilandi (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="vilandiCt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Vilandi Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Diamonds (ct)</label><input type="number" name="diamondsCt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Diamonds Rate</label><input type="number" name="diamondsCtRate" onChange={handleInputChange} /></div>
+            <div><label>Diamonds (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="diamondsCt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Diamonds Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="diamondsCtRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Beads (Ct.)</label><input type="number" name="beadsCt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Beads Rate</label><input type="number" name="vilandiBeadsRate" onChange={handleInputChange} /></div>
+            <div><label>Beads (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="beadsCt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Beads Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiBeadsRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Pearls (gm)</label><input type="number" name="pearlsGm" step="0.001" onChange={handleInputChange} /></div>
-            <div><label>Pearls Rate</label><input type="number" name="vilandiPearlRate" onChange={handleInputChange} /></div>
+            <div><label>Pearls (gm)</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="pearlsGm" step="0.001" onChange={handleInputChange} /></div>
+            <div><label>Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>SS Pearls (Ct.)</label><input type="number" name="ssPearlCts" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>SS Pearls Rate</label><input type="number" name="osSSPearlRate" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="ssPearlCts" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="osSSPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Other Stones</label><input type="number" name="otherStonesCt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Other Stones Rate</label><input type="number" name="openStRate" onChange={handleInputChange} /></div>
+            <div><label>Other Stones</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="otherStonesCt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Other Stones Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="openStRate" onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -217,12 +230,12 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
       return (
         <div className="category-specific">
           <label>Design No</label><input type="text" name="designNo" required onChange={handleInputChange} />
-          <label>Gross</label><input type="number" name="chainGross" step="0.001" required onChange={handleInputChange} />
-          <label>Net</label><input type="number" name="chainNet" step="0.001" required onChange={handleInputChange} />
+          <label>Gross</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="chainGross" step="0.001" required onChange={handleInputChange} />
+          <label>Net</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="chainNet" step="0.001" required onChange={handleInputChange} />
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="chainLabour" disabled={formData.chainLabourAll || formData.chainLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="chainLabourAll" disabled={formData.chainLabour || formData.chainLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="chainLabourP" disabled={formData.chainLabour || formData.chainLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="chainLabour" disabled={formData.chainLabourAll || formData.chainLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="chainLabourAll" disabled={formData.chainLabour || formData.chainLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="chainLabourP" disabled={formData.chainLabour || formData.chainLabourAll} onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -233,21 +246,21 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
       return (
         <div className="category-specific">
           <label>Design No</label><input type="text" name="designNoEarring" required onChange={handleInputChange} />
-          <label>Gross Weight</label><input type="number" name="earringGross" step="0.001" required onChange={handleInputChange} />
-          <label>Net Weight</label><input type="number" name="earringNet" step="0.001" required onChange={handleInputChange} />
-          <label>Pieces</label><input type="number" name="earringPcs" onChange={handleInputChange} />
+          <label>Gross Weight</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="earringGross" step="0.001" required onChange={handleInputChange} />
+          <label>Net Weight</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="earringNet" step="0.001" required onChange={handleInputChange} />
+          <label>Pieces</label><input pattern="\d*" inputmode="decimal" type="text" name="earringPcs" onChange={handleInputChange} />
           <div className="inline-fields">
-            <div><label>Diamonds (ct)</label><input type="number" name="diamondWeightEarring" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Diamonds Rate</label><input type="number" name="diamondsWtRate" onChange={handleInputChange} /></div>
+            <div><label>Diamonds (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="diamondWeightEarring" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Diamonds Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="diamondsWtRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Other Stones</label><input type="number" name="earSt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Other Stones Rate</label><input type="number" name="earStRate" onChange={handleInputChange} /></div>
+            <div><label>Other Stones</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="earSt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Other Stones Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="earStRate" onChange={handleInputChange} /></div>
           </div>
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="diamondLabour" disabled={formData.diamondLabourAll || formData.drLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="diamondLabourAll" disabled={formData.diamondLabour || formData.drLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="drLabourP" disabled={formData.diamondLabour || formData.diamondLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="diamondLabour" disabled={formData.diamondLabourAll || formData.drLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="diamondLabourAll" disabled={formData.diamondLabour || formData.drLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="drLabourP" disabled={formData.diamondLabour || formData.diamondLabourAll} onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -258,36 +271,36 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
       return (
         <div className="category-specific">
           <label>Design No</label><input type="text" name="designNoVilandi" required onChange={handleInputChange} />
-          <label>Gross</label><input type="number" name="vilandiGross" step="0.001" required onChange={handleInputChange} />
-          <label>Net</label><input type="number" name="net" step="0.001" required onChange={handleInputChange} />
+          <label>Gross</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="vilandiGross" step="0.001" required onChange={handleInputChange} />
+          <label>Net</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="net" step="0.001" required onChange={handleInputChange} />
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="vilandiLabour" disabled={formData.vilandiLabourAll || formData.vilandiLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="vilandiLabourAll" disabled={formData.vilandiLabour || formData.vilandiLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="vilandiLabourP" disabled={formData.vilandiLabour || formData.vilandiLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiLabour" disabled={formData.vilandiLabourAll || formData.vilandiLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiLabourAll" disabled={formData.vilandiLabour || formData.vilandiLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiLabourP" disabled={formData.vilandiLabour || formData.vilandiLabourAll} onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Vilandi (ct)</label><input type="number" name="vilandi" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Vilandi Rate</label><input type="number" name="vilandiRate" onChange={handleInputChange} /></div>
+            <div><label>Vilandi (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="vilandi" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Vilandi Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Stones</label><input type="number" name="stones" onChange={handleInputChange} /></div>
-            <div><label>Stones Rate</label><input type="number" name="vilandiStoneRate" onChange={handleInputChange} /></div>
+            <div><label>Stones</label><input pattern="\d*" inputmode="decimal" type="text" name="stones" onChange={handleInputChange} /></div>
+            <div><label>Stones Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiStoneRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Beads (Ct.)</label><input type="number" name="beadsVilandi" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Beads Rate</label><input type="number" name="vilandiBeadsRate" onChange={handleInputChange} /></div>
+            <div><label>Beads (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="beadsVilandi" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Beads Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiBeadsRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Pearls (gm)</label><input type="number" name="pearlsVilandi" step="0.001" onChange={handleInputChange} /></div>
-            <div><label>Pearls Rate</label><input type="number" name="vilandiPearlRate" onChange={handleInputChange} /></div>
+            <div><label>Pearls (gm)</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="pearlsVilandi" step="0.001" onChange={handleInputChange} /></div>
+            <div><label>Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>SS Pearls (Ct.)</label><input type="number" name="ssPearlCt" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>SS Pearls Rate</label><input type="number" name="vilandiSSPearlRate" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="ssPearlCt" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiSSPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Real Stones</label><input type="number" name="realStone" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Fitting</label><input type="number" name="vilandiFitting" onChange={handleInputChange} /></div>
+            <div><label>Real Stones</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="realStone" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Fitting</label><input pattern="\d*" inputmode="decimal" type="text" name="vilandiFitting" onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -298,40 +311,40 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
       return (
         <div className="category-specific">
           <label>Design No</label><input type="text" name="designNoJadtar" required onChange={handleInputChange} />
-          <label>Gross</label><input type="number" name="jadtarGross" step="0.001" required onChange={handleInputChange} />
-          <label>Net</label><input type="number" name="jadtarNet" step="0.001" required onChange={handleInputChange} />
+          <label>Gross</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="jadtarGross" step="0.001" required onChange={handleInputChange} />
+          <label>Net</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="jadtarNet" step="0.001" required onChange={handleInputChange} />
           <div className="labour-three-inline">
-            <div><label>Labour/Gm</label><input type="number" name="jadtarLabour" disabled={formData.jadtarLabourAll || formData.jadtarLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour Amt</label><input type="number" name="jadtarLabourAll" disabled={formData.jadtarLabour || formData.jadtarLabourP} onChange={handleInputChange} /></div>
-            <div><label>Labour %</label><input type="number" name="jadtarLabourP" disabled={formData.jadtarLabour || formData.jadtarLabourAll} onChange={handleInputChange} /></div>
+            <div><label>Labour/Gm</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarLabour" disabled={formData.jadtarLabourAll || formData.jadtarLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour Amt</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarLabourAll" disabled={formData.jadtarLabour || formData.jadtarLabourP} onChange={handleInputChange} /></div>
+            <div><label>Labour %</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarLabourP" disabled={formData.jadtarLabour || formData.jadtarLabourAll} onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Stones (ct)</label><input type="number" name="jadtarStones" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Stones Rate</label><input type="number" name="jadtarStoneRate" onChange={handleInputChange} /></div>
+            <div><label>Stones (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="jadtarStones" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Stones Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarStoneRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Beads (Ct.)</label><input type="number" name="jadtarBeads" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Beads Rate</label><input type="number" name="jadtarBeadsRate" onChange={handleInputChange} /></div>
+            <div><label>Beads (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="jadtarBeads" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Beads Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarBeadsRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Pearls Weight (gm)</label><input type="number" name="jadtarPearls" step="0.001" onChange={handleInputChange} /></div>
-            <div><label>Pearls Rate</label><input type="number" name="jadtarPearlRate" onChange={handleInputChange} /></div>
+            <div><label>Pearls Weight (gm)</label><input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" name="jadtarPearls" step="0.001" onChange={handleInputChange} /></div>
+            <div><label>Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>SS Pearls (Ct.)</label><input type="number" name="jadtarSSPearl" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>SS Pearls Rate</label><input type="number" name="jadtarSSPearlRate" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls (Ct.)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="jadtarSSPearl" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>SS Pearls Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarSSPearlRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Real Stones</label><input type="number" name="jadtarRealStone" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Fitting</label><input type="number" name="jadtarFitting" onChange={handleInputChange} /></div>
+            <div><label>Real Stones</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="jadtarRealStone" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Fitting</label><input pattern="\d*" inputmode="decimal" type="text" name="jadtarFitting" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Vilandi (ct)</label><input type="number" name="jadvilandi" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Vilandi Rate</label><input type="number" name="jadvilandiRate" onChange={handleInputChange} /></div>
+            <div><label>Vilandi (ct)</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="jadvilandi" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Vilandi Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="jadvilandiRate" onChange={handleInputChange} /></div>
           </div>
           <div className="inline-fields">
-            <div><label>Mozonite</label><input type="number" name="mozStone" step="0.01" onChange={handleInputChange} /></div>
-            <div><label>Mozonite Rate</label><input type="number" name="mozStoneRate" onChange={handleInputChange} /></div>
+            <div><label>Mozonite</label><input pattern="\d*(\.\d{1,2})?" inputmode="decimal" type="text" name="mozStone" step="0.01" onChange={handleInputChange} /></div>
+            <div><label>Mozonite Rate</label><input pattern="\d*" inputmode="decimal" type="text" name="mozStoneRate" onChange={handleInputChange} /></div>
           </div>
         </div>
       );
@@ -393,10 +406,10 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
           </select>
 
           <label>Stock Quantity</label>
-          <input type="number" name="stockQuantity" value={formData.stockQuantity} onChange={handleInputChange} />
+          <input pattern="\d*" inputmode="decimal" type="text" name="stockQuantity" value={formData.stockQuantity} onChange={handleInputChange} />
 
           <label>Product Image</label>
-          <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} />
+          <input key={imageFile ? 'file-selected' : 'file-empty'} type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} />
 
           {formData.subCategoryId && (
             <>
@@ -423,8 +436,8 @@ function AddProduct({ onSwitchPage, onOpenModal }) {
             {extraFields.map((field, index) => (
               <div key={index} className="extra-field-row">
                 <input type="text" placeholder="Name" required value={field.name} onChange={(e) => handleExtraFieldChange(index, 'name', e.target.value)} />
-                <input type="number" placeholder="Qty" step="0.001" required value={field.qty} onChange={(e) => handleExtraFieldChange(index, 'qty', e.target.value)} />
-                <input type="number" placeholder="Rate" required value={field.rate} onChange={(e) => handleExtraFieldChange(index, 'rate', e.target.value)} />
+                <input pattern="\d*(\.\d{1,3})?" inputmode="decimal" type="text" placeholder="Qty" step="0.001" required value={field.qty} onChange={(e) => handleExtraFieldChange(index, 'qty', e.target.value)} />
+                <input pattern="\d*" inputmode="decimal" type="text" placeholder="Rate" required value={field.rate} onChange={(e) => handleExtraFieldChange(index, 'rate', e.target.value)} />
                 <button type="button" className="remove-btn" onClick={() => setExtraFields(extraFields.filter((_, i) => i !== index))}>&times;</button>
               </div>
             ))}
